@@ -25,22 +25,22 @@ _OaksLabThoseArePokeBallsText::
 	cont "contain #MON!"
 	done
 
-_OaksLabYouWantCharmanderText::
+_OaksLabYouWantFlareonText::
 	text "So! You want the"
 	line "fire #MON,"
-	cont "CHARMANDER?" ; TODO: parameterize?
+	cont "FLAREON?" ; TODO: parameterize?
 	done
 
-_OaksLabYouWantSquirtleText::
+_OaksLabYouWantVaporeonText::
 	text "So! You want the"
 	line "water #MON,"
-	cont "SQUIRTLE?"
+	cont "VAPOREON?"
 	done
 
-_OaksLabYouWantBulbasaurText::
+_OaksLabYouWantJolteonText::
 	text "So! You want the"
-	line "plant #MON,"
-	cont "BULBASAUR?"
+	line "electric #MON,"
+	cont "JOLTEON?"
 	done
 
 _OaksLabMonEnergeticText::

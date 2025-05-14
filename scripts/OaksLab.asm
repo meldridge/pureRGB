@@ -843,30 +843,30 @@ OaksLabShowPokeBallPokemonScript:
 	rst _DelayFrames
 	ld a, [wSpriteIndex]
 	cp OAKSLAB_CHARMANDER_POKE_BALL
-	jr z, OaksLabYouWantCharmanderText
+	jr z, OaksLabYouWantFlareonText
 	cp OAKSLAB_SQUIRTLE_POKE_BALL
-	jr z, OaksLabYouWantSquirtleText
-	jr OaksLabYouWantBulbasaurText
+	jr z, OaksLabYouWantVaporeonText
+	jr OaksLabYouWantJolteonText
 
-OaksLabYouWantCharmanderText:
+OaksLabYouWantFlareonText:
 	ld hl, .Text
 	jr OaksLabMonChoiceMenu
 .Text:
-	text_far _OaksLabYouWantCharmanderText
+	text_far _OaksLabYouWantFlareonText
 	text_end
 
-OaksLabYouWantSquirtleText:
+OaksLabYouWantVaporeonText:
 	ld hl, .Text
 	jr OaksLabMonChoiceMenu
 .Text:
-	text_far _OaksLabYouWantSquirtleText
+	text_far _OaksLabYouWantVaporeonText
 	text_end
 
-OaksLabYouWantBulbasaurText:
+OaksLabYouWantJolteonText:
 	ld hl, .Text
 	jr OaksLabMonChoiceMenu
 .Text:
-	text_far _OaksLabYouWantBulbasaurText
+	text_far _OaksLabYouWantJolteonText
 	text_end
 
 OaksLabMonChoiceMenu:

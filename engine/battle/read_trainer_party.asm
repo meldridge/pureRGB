@@ -174,12 +174,12 @@ ReadTrainer:
 ; starter
 ;	ld a, [wRivalStarter]
 ;	cp STARTER3
-;	ld b, MEGA_DRAIN
+;	ld b, THUNDER
 ;	jr z, .GiveStarterMove
 ;	cp STARTER1
 ;	ld b, FIRE_BLAST
 ;	jr z, .GiveStarterMove
-;	ld b, BLIZZARD ; must be squirtle
+;	ld b, BLIZZARD ; must be vaporeon
 ;.GiveStarterMove
 ;	ld a, b
 ;	ld [wEnemyMon6Moves + 2], a
