@@ -1543,6 +1543,7 @@ FlareonEvosMoves: ; Automatically tries to learn EMBER on evolution
 	db 0
 ; Learnset
 	db 6, SHARPEN
+	db 8, EMBER
 	db 10, QUICK_ATTACK
 	db 14, ROAR
 	db 18, STOMP
@@ -1560,6 +1561,7 @@ JolteonEvosMoves: ; Automatically tries to learn THUNDERSHOCK on evolution
 	db 0
 ; Learnset
 	db 6, SHARPEN
+	db 8, THUNDERSHOCK
 	db 10, QUICK_ATTACK
 	db 14, ROAR
 	db 18, STOMP
@@ -1577,6 +1579,7 @@ VaporeonEvosMoves: ; Automatically tries to learn WATER_GUN on evolution
 	db 0
 ; Learnset
 	db 6, SHARPEN
+	db 8, WATER_GUN
 	db 10, QUICK_ATTACK
 	db 14, ROAR
 	db 18, STOMP
