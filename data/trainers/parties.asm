@@ -25,7 +25,7 @@ TrainerDataPointers:
 	dw TamerData
 	dw BirdKeeperData
 	dw BlackbeltData
-	dw Green1Data
+	dw Rival1Data
 	dw ProfOakData
 	dw ScientistData
 	dw GiovanniData
@@ -41,8 +41,8 @@ TrainerDataPointers:
 	dw BlaineData
 	dw SabrinaData
 	dw GentlemanData
-	dw Green2Data
-	dw Green3Data
+	dw Rival2Data
+	dw Rival3Data
 	dw LoreleiData
 	dw ChannelerData
 	dw AgathaData
@@ -533,7 +533,7 @@ BlackbeltData:
 ; Victory Road 2F
 	db 57, PINSIR, HITMONCHAN, MACHAMP, 0
 
-Green1Data:
+Rival1Data:
 	db 5, STARTER1, 0
 	db 5, STARTER2, 0
 	db 5, STARTER3, 0
@@ -746,7 +746,7 @@ GentlemanData:
 	db 28, PIKACHU, MAROWAK, 0 ; NEWx
 ; a duplicate here used in vermilion gym was switched over to SOLDIER due to its dialogue
 
-Green2Data:
+Rival2Data:
 ; SS Anne 2F
 	db $FF, 25, TANGELA, 25, LICKITUNG, 24, MACHOKE, 27, STARTER1, 0 
 	db $FF, 25, RATICATE, 25, PORYGON, 24, WEEPINBELL, 27, STARTER2, 0 
@@ -764,7 +764,7 @@ Green2Data:
 	db $FF, 62, RAICHU, 62, NIDOKING, 63, PERSIAN, 63, RAPIDASH, 63, AERODACTYL, 65, STARTER2, 0 
 	db $FF, 62, FEAROW, 62, POLIWRATH, 63, MAGNETON, 63, WEEZING, 63, GENGAR, 65, STARTER3, 0 
 
-Green3Data:
+Rival3Data:
 	db $FD, ELITE_FOUR_RIVAL1_MOVESET, 69, ARTICUNO, 68, ALAKAZAM, 68, RHYDON, 68, EXEGGUTOR, 69, SNORLAX, 72, STARTER1, 0
 	db $FD, ELITE_FOUR_RIVAL2_MOVESET, 69, MOLTRES, 68, ALAKAZAM, 68, RHYDON, 68, TAUROS, 69, GENGAR, 72, STARTER2, 0 
 	db $FD, ELITE_FOUR_RIVAL3_MOVESET, 69, ZAPDOS, 68, ALAKAZAM, 68, KINGLER, 68, RHYDON, 69, GYARADOS, 72, STARTER3, 0 

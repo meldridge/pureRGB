@@ -1960,7 +1960,7 @@ AnimateRetreatingPlayerMon:
 	lb bc, 7, 7
 	jp ClearScreenArea
 
-; reads player's current mon's HP into wBattleMonHP
+; Copies player's battle pokemon's current HP and status into the party struct data so it stays after battle or switching
 ReadPlayerMonCurHPAndStatus:
 	ld a, [wPlayerMonNumber]
 	ld hl, wPartyMon1HP
@@ -1970,7 +1970,8 @@ ReadPlayerMonCurHPAndStatus:
 	ld e, l
 	ld hl, wBattleMonHP
 	ld bc, $4               ; 2 bytes HP, 1 byte unknown (unused?), 1 byte status
-	jp CopyData
+	rst _CopyData
+	ret
 
 DrawHUDsAndHPBars:
 	call DrawPlayerHUDAndHPBar
@@ -2825,7 +2826,7 @@ SelectMenuItem:
 	ld b, $0
 	add hl, bc
 	ld a, [hl]
-	and $3f
+	and PP_MASK
 	jr z, .noPP
 	ld a, [wPlayerDisabledMove]
 	swap a
@@ -2917,7 +2918,7 @@ AnyMoveToSelect:
 	or [hl]
 	inc hl
 	or [hl]
-	and $3f
+	and PP_MASK
 	ret nz
 	jr .noMovesLeft
 .handleDisabledMove
@@ -3075,7 +3076,7 @@ PrintMenuItem:
 	ld hl, wBattleMonPP
 	add hl, bc
 	ld a, [hl]
-	and $3f
+	and PP_MASK
 	ld [wBattleMenuCurrentPP], a
 ; print TYPE/<type> and <curPP>/<maxPP>
 	hlcoord 1, 9
@@ -4232,18 +4233,18 @@ CheckForDisobedience:
 	ld hl, wBattleMonPP
 	push hl
 	ld a, [hli]
-	and $3f
+	and PP_MASK
 	ld b, a
 	ld a, [hli]
-	and $3f
+	and PP_MASK
 	add b
 	ld b, a
 	ld a, [hli]
-	and $3f
+	and PP_MASK
 	add b
 	ld b, a
 	ld a, [hl]
-	and $3f
+	and PP_MASK
 	add b
 	pop hl
 	push af
@@ -4252,7 +4253,7 @@ CheckForDisobedience:
 	ld b, $0
 	add hl, bc
 	ld a, [hl]
-	and $3f
+	and PP_MASK
 	ld b, a
 	pop af
 	cp b
@@ -6679,6 +6680,7 @@ LoadEnemyMonData:
 	ld a, [hli]            ; copy type 2
 	ld [de], a
 	inc de
+	; ??? TODO: This can run if a gift or caught pokemon, does it cause issues?
 	push de
 	push hl
 	push bc
@@ -7594,11 +7596,7 @@ do999StatCap:
 	;If the bit is already set from the lesser nibble, then its addition here can still make it remain set if a is low enough.
 	ret c ;jump to next marker if the c_flag is set. This only remains set if BC <  the cap of $03E7.
 	;else let's continue and set the 999 cap
-	ld a, MAX_STAT_VALUE / $100 ; else load $03 into a
-	ld b, a ;and store it as the high byte
-	ld a, MAX_STAT_VALUE % $100 ; else load $E7 into a
-	ld c, a ;and store it as the low byte
-	;now registers b & c together contain $03E7 for a capped stat value of 999
+	lb bc, MAX_STAT_VALUE / $100 , MAX_STAT_VALUE % $100 ; $03 into high byte, $E7 into low byte which is 999
 	ret
 ;;;;;;;;;;
 

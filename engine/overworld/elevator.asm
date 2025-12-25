@@ -24,7 +24,6 @@ ShakeElevator::
 	dec e
 	jr nz, .getTravelDistanceLoop
 	ld b, a ; how many frames will the shake loop happen for (depends on how far the elevator is travelling now)
-	ld a, [wWarpEntries + 3] ; map we will go to
 ;;;;;;;;;;
 	ldh a, [hSCY]
 	ld d, a
@@ -53,6 +52,7 @@ ShakeElevator::
 	ld a, SFX_SAFARI_ZONE_PA
 	call PlayMusic
 .musicLoop
+	; TODO: instead of making it wait for the sound to finish, pause and unpause music in map script when it's done?
 	ld a, [wChannelSoundIDs + CHAN5]
 	cp SFX_SAFARI_ZONE_PA
 	jr z, .musicLoop

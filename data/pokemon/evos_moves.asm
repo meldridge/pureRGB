@@ -205,6 +205,8 @@ EvosMovesPointerTable:
 	dw VictreebelEvosMoves
 	assert_table_length NUM_POKEMON_INDEXES
 
+; TODO: combine evolved pokemon data with prevo pokemon data to save space since their learnsets are almost always the same anyway
+
 RhydonEvosMoves:
 ; Evolutions
 	db 0
@@ -545,6 +547,7 @@ MewEvosMoves:
 	db 55, MEGA_PUNCH
 	db 59, METRONOME
 	db 63, SUBSTITUTE
+	; TODO: Softboiled?
 	db 0
 
 GyaradosEvosMoves:
@@ -674,8 +677,9 @@ TangelaEvosMoves:
 	db 18, CONSTRICT ; STATIC_SNAG
 	db 23, STUN_SPORE
 	db 26, MEGA_DRAIN
-	db 30, AMNESIA
-	db 34, RAZOR_LEAF
+	db 30, DEFENSE_CURL
+	db 34, AMNESIA
+	db 38, RAZOR_LEAF
 	db 44, SPORE
 	db 49, DREAM_EATER
 	db 54, SELFDESTRUCT
