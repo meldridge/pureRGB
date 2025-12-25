@@ -311,12 +311,12 @@ CallHome:
 	rst _PrintText
 	ld a, [wPlayerStarter]
 	cp STARTER3
-	ld hl, CeladonMartCallDadBulbasaurText
+	ld hl, CeladonMartCallDadJolteonText
 	jr z, .dadPart2
 	cp STARTER2
-	ld hl, CeladonMartCallDadSquirtleText
+	ld hl, CeladonMartCallDadVaporeonText
 	jr z, .dadPart2
-	ld hl, CeladonMartCallDadCharmanderText
+	ld hl, CeladonMartCallDadFlareonText
 .dadPart2
 	rst _PrintText
 	ld hl, wObtainedBadges
@@ -422,16 +422,16 @@ CeladonMartCallDadText:
 	text_far _CeladonMartCallDadText
 	text_end
 
-CeladonMartCallDadBulbasaurText:
-	text_far _CeladonMartCallDadBulbasaurText
+CeladonMartCallDadJolteonText:
+	text_far _CeladonMartCallDadJolteonText
 	text_end
 
-CeladonMartCallDadCharmanderText:
-	text_far _CeladonMartCallDadCharmanderText
+CeladonMartCallDadFlareonText:
+	text_far _CeladonMartCallDadFlareonText
 	text_end
 
-CeladonMartCallDadSquirtleText:
-	text_far _CeladonMartCallDadSquirtleText
+CeladonMartCallDadVaporeonText:
+	text_far _CeladonMartCallDadVaporeonText
 	text_end
 
 CeladonMartCallDadText2:
