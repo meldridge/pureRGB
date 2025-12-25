@@ -1,44 +1,39 @@
-_CeladonMartCallDadBulbasaurText::
-	text "A #MON that's"
-	line "just as tenacious"
-	cont "and loyal as you!"
-	para "I heard it learns"
-	line "lots of useful"
-	cont "moves."
-	para "You knew that,"
-	line "didn't you?"
-	para "You planned it"
-	line "all out well!"
+_CeladonMartCallDadJolteonText::
+	text "A lightning-fast"
+	line "#MON, just like"
+	cont "you!"
+	para "I heard it's the"
+	line "fastest of the"
+	cont "three!"
+	para "You always were"
+	line "a quick thinker."
 	para "My son is smart!"
 	prompt
 
-_CeladonMartCallDadSquirtleText::
-	text "Totally reliable"
-	line "with strong"
-	cont "DEFENSE!"
+_CeladonMartCallDadVaporeonText::
+	text "An elegant #MON"
+	line "with amazing"
+	cont "endurance!"
 	para "It doesn't have"
 	line "many weaknesses"
 	cont "either!"
-	para "And BLASTOISE's"
-	line "water cannons<...>"
-	para "What a sight!"
-	para "Wouldn't want to"
-	line "be on the other"
-	cont "end of those!"
+	para "And all that HP!"
+	para "It can take hits"
+	line "and keep going!"
+	para "Good choice, son!"
 	prompt
 
 
-_CeladonMartCallDadCharmanderText::
+_CeladonMartCallDadFlareonText::
 	text "A fiery #MON,"
 	line "just like your"
 	cont "personality!"
 	para "Was challenging"
 	line "BROCK an issue?"
 	para "Probably not!"
-	para "I hope to see you"
-	line "fly into PALLET"
-	cont "on a CHARIZARD"
-	cont "some day!"
+	para "That attack power"
+	line "is incredible!"
+	para "Burn 'em all, son!"
 	prompt
 
 _CeladonMartCallOakText::
