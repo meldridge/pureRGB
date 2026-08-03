@@ -69,16 +69,16 @@ RandoMapSpecies:
 	ld e, [hl]
 	ret
 
-; nz if this save is a randomizer game, handling sram itself.
+; e = 0 if this save is a normal game, nonzero if it's a randomizer game.
+; Handles sram itself. The answer comes back in e rather than the flags because
+; callers reach this through a bank switch.
 RandoEnabledFar::
 	push hl
 	call RandoSramOn
 	call RandoEnabled
-	push af
+	ld e, a
 	call RandoSramOff
-	pop af
 	pop hl
-	and a
 	ret
 
 ; Remaps b species bytes starting at hl, stepping c bytes between them.
@@ -114,6 +114,27 @@ RandoRemapPartySpecies::
 	call RandoMapSpecies
 	ld a, e
 	ld [wCurPartySpecies], a
+.done
+	jp RandoSramOff
+
+; Remaps the player's and rival's starters once Oak's Lab has stashed them.
+; The rival keeps picking positionally, so whatever STARTER2 became is still
+; what he takes if you chose STARTER1.
+RandoRemapStarters::
+	call RandoSramOn
+	call RandoEnabled
+	jr z, .done
+	ld a, [wCurPartySpecies]
+	ld e, a
+	call RandoMapSpecies
+	ld a, e
+	ld [wCurPartySpecies], a
+	ld [wPokedexNum], a
+	ld a, [wRivalStarterTemp]
+	ld e, a
+	call RandoMapSpecies
+	ld a, e
+	ld [wRivalStarterTemp], a
 .done
 	jp RandoSramOff
 

@@ -778,6 +778,7 @@ OaksLabSelectedPokeBallScript:
 	ld [wRivalStarterBallSpriteIndex], a
 	ld a, b
 	ld [wSpriteIndex], a
+	callfar RandoRemapStarters ; PureRGBnote: ADDED: randomizer mode
 	CheckEvent EVENT_GOT_STARTER
 	jp nz, OaksLabLastMonScript
 	CheckEventReuseA EVENT_OAK_ASKED_TO_CHOOSE_MON
@@ -809,12 +810,28 @@ OaksLabShowPokeBallPokemonScript:
 	call ReloadMapData
 	ld c, 10
 	rst _DelayFrames
+; PureRGBnote: ADDED: randomizer mode. The lines below name a species and its
+; type, both wrong once starters are shuffled, so use a generic prompt instead.
+	callfar RandoEnabledFar
+	ld a, e
+	and a
+	jr nz, OaksLabYouWantRandomizedText
 	ld a, [wSpriteIndex]
 	cp OAKSLAB_CHARMANDER_POKE_BALL
 	jr z, OaksLabYouWantCharmanderText
 	cp OAKSLAB_SQUIRTLE_POKE_BALL
 	jr z, OaksLabYouWantSquirtleText
 	jr OaksLabYouWantBulbasaurText
+
+OaksLabYouWantRandomizedText:
+	ld a, [wCurPartySpecies]
+	ld [wNamedObjectIndex], a
+	call GetMonName
+	ld hl, .Text
+	jr OaksLabMonChoiceMenu
+.Text:
+	text_far _OaksLabYouWantRandomizedText
+	text_end
 
 OaksLabYouWantCharmanderText:
 	ld hl, .Text

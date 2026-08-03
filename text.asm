@@ -306,6 +306,7 @@ INCLUDE "text/CeruleanBallDesigner.asm"
 INCLUDE "text/CameraEvents.asm"
 INCLUDE "text/OptionsInfoText.asm"
 INCLUDE "text/FightingBrosHouse.asm"
+INCLUDE "text/Randomizer.asm"
 
 SECTION "Pokédex Text", ROMX
 
