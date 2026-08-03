@@ -78,6 +78,9 @@ ReadTrainer:
 	callfar GetRandomFitnessPokemon
 	pop hl
 .noRandomFitnessPokemon
+	push hl
+	callfar RandoRemapPartySpecies ; PureRGBnote: ADDED: randomizer mode
+	pop hl
 	ld a, ENEMY_PARTY_DATA
 	ld [wMonDataLocation], a
 	push hl
@@ -122,6 +125,9 @@ ReadTrainer:
 	ld [wCurEnemyLevel], a
 	ld a, [hli]
 	ld [wCurPartySpecies], a
+	push hl
+	callfar RandoRemapPartySpecies ; PureRGBnote: ADDED: randomizer mode
+	pop hl
 	ld a, ENEMY_PARTY_DATA
 	ld [wMonDataLocation], a
 	push hl

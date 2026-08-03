@@ -103,6 +103,20 @@ RandoRemapBuffer:
 	jr nz, .loop
 	ret
 
+; Remaps wCurPartySpecies in place, for callers that are holding a data pointer
+; and can't spare registers for an argument.
+RandoRemapPartySpecies::
+	call RandoSramOn
+	call RandoEnabled
+	jr z, .done
+	ld a, [wCurPartySpecies]
+	ld e, a
+	call RandoMapSpecies
+	ld a, e
+	ld [wCurPartySpecies], a
+.done
+	jp RandoSramOff
+
 ; Remaps the wild data ram copies in place, after LoadWildDataCommon has filled
 ; them. Slot order is preserved so the palette flags in WildPalettePointers stay
 ; aligned with the species they describe.

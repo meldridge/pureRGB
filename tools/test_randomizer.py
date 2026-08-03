@@ -484,6 +484,26 @@ def apply_species_test(rom, syms, seed, species_map, pool, check):
     check("apply: preserves bc and hl",
           all(call(s, True)[1] == (0x5A, 0x5A, 0x5A, 0x5A) for s in sample))
 
+    # the trainer party hook goes through wram instead of a register
+    pbank, pentry = syms["RandoRemapPartySpecies"]
+    cur = syms["wCurPartySpecies"][1]
+
+    def call_party(species, enabled):
+        cpu = Cpu(rom, pbank)
+        if enabled:
+            for i, ch in enumerate(b"RAND"):
+                cpu.ram[syms["sRandoMagic"][1] + i] = ch
+            for i in range(4):
+                cpu.ram[syms["sRandoSeed"][1] + i] = (seed >> (8 * i)) & 0xFF
+        cpu.ram[cur] = species
+        cpu.run(pentry)
+        return cpu.ram[cur]
+
+    check("party: maps wCurPartySpecies",
+          all(call_party(s, True) == species_map[s] for s in sample))
+    check("party: identity when randomizer off",
+          all(call_party(s, False) == s for s in sample))
+
 
 def main():
     rom_path = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "pokered.gbc"
