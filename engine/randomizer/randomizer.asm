@@ -42,14 +42,24 @@ RandoEnabled::
 ApplyRandoSpecies::
 	push hl
 	push bc
-	ld a, e
-	and a
-	jr z, .done
-	cp NUM_POKEMON_INDEXES + 1
-	jr nc, .done
 	call RandoSramOn
 	call RandoEnabled
 	jr z, .sramOff
+	call RandoMapSpecies
+.sramOff
+	call RandoSramOff
+	pop bc
+	pop hl
+	ret
+
+; e = species in, e = species out.
+; Assumes sram is enabled and the randomizer is already known to be on.
+RandoMapSpecies:
+	ld a, e
+	and a
+	ret z
+	cp NUM_POKEMON_INDEXES + 1
+	ret nc
 	push de
 	call EnsureSpeciesMap
 	pop de
@@ -57,11 +67,6 @@ ApplyRandoSpecies::
 	ld d, 0
 	add hl, de
 	ld e, [hl]
-.sramOff
-	call RandoSramOff
-.done
-	pop bc
-	pop hl
 	ret
 
 ; nz if this save is a randomizer game, handling sram itself.
@@ -77,17 +82,15 @@ RandoEnabledFar::
 	ret
 
 ; Remaps b species bytes starting at hl, stepping c bytes between them.
-; Used on the wild data ram copies, which interleave levels and species.
-RandoRemapBuffer::
-	push hl
-	push bc
-	call RandoEnabledFar
-	pop bc
-	pop hl
-	ret z
+; Assumes sram is enabled and the randomizer is already known to be on.
+RandoRemapBuffer:
 .loop
 	ld e, [hl]
-	call ApplyRandoSpecies
+	push hl
+	push bc
+	call RandoMapSpecies
+	pop bc
+	pop hl
 	ld a, e
 	ld [hl], a
 	ld a, c
@@ -99,6 +102,33 @@ RandoRemapBuffer::
 	dec b
 	jr nz, .loop
 	ret
+
+; Remaps the wild data ram copies in place, after LoadWildDataCommon has filled
+; them. Slot order is preserved so the palette flags in WildPalettePointers stay
+; aligned with the species they describe.
+; A rate of 0 means that half was never copied, so its buffer is stale and must
+; be left alone.
+RandoRemapWildData::
+	call RandoSramOn
+	call RandoEnabled
+	jr z, .done
+	ld a, [wGrassRate]
+	and a
+	jr z, .water
+	ld hl, wGrassMons + 1
+	ld b, NUM_WILDMONS
+	ld c, 2
+	call RandoRemapBuffer
+.water
+	ld a, [wWaterRate]
+	and a
+	jr z, .done
+	ld hl, wWaterMons + 1
+	ld b, NUM_WILDMONS
+	ld c, 2
+	call RandoRemapBuffer
+.done
+	jp RandoSramOff
 
 ; Starts a randomizer game using the 4 byte seed at hl.
 ; Writes the magic so the state is recognised, and clears sRandoMapSeed so the

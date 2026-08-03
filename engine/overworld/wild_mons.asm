@@ -30,10 +30,12 @@ LoadWildDataCommon::
 	ld a, [hli]
 	ld [wWaterRate], a
 	and a
-	ret z   ; if no water data, no need to load it
+	jr z, .done   ; if no water data, no need to load it
 	ld de, wWaterMons  ; otherwise, load surfing data
 	ld bc, WILDDATA_LENGTH - 1
 	rst _CopyData
+.done
+	callfar RandoRemapWildData ; PureRGBnote: ADDED: randomizer mode
 	ret
 
 FindWaterLocations:

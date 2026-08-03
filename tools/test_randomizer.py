@@ -410,6 +410,54 @@ def generate(rom, syms, seed):
     return bytes(cpu.ram[mapaddr:mapaddr + 191]), cpu.steps
 
 
+def wild_data_test(rom, syms, seed, species_map, check):
+    """Drive RandoRemapWildData over a faked pair of wild data ram copies."""
+    bank, _ = syms["RandoRemapWildData"]
+    cpu = Cpu(rom, bank)
+    for i, ch in enumerate(b"RAND"):
+        cpu.ram[syms["sRandoMagic"][1] + i] = ch
+    for i in range(4):
+        cpu.ram[syms["sRandoSeed"][1] + i] = (seed >> (8 * i)) & 0xFF
+
+    grass_rate, grass_mons = syms["wGrassRate"][1], syms["wGrassMons"][1]
+    water_rate, water_mons = syms["wWaterRate"][1], syms["wWaterMons"][1]
+
+    # grass is populated, water is not -- a rate of 0 means the buffer is stale
+    cpu.ram[grass_rate] = 25
+    cpu.ram[water_rate] = 0
+    grass_in = []
+    for slot in range(10):
+        level, species = 3 + slot, 1 + slot * 7
+        cpu.ram[grass_mons + slot * 2] = level
+        cpu.ram[grass_mons + slot * 2 + 1] = species
+        grass_in.append((level, species))
+    water_sentinel = bytes(range(0x40, 0x54))
+    cpu.ram[water_mons:water_mons + 20] = water_sentinel
+
+    cpu.run(syms["RandoRemapWildData"][1])
+
+    levels_ok = all(cpu.ram[grass_mons + s * 2] == grass_in[s][0] for s in range(10))
+    species_ok = all(
+        cpu.ram[grass_mons + s * 2 + 1] == species_map[grass_in[s][1]]
+        for s in range(10)
+    )
+    check("wild: levels untouched", levels_ok)
+    check("wild: species remapped through the table", species_ok)
+    check("wild: rate 0 leaves stale buffer alone",
+          bytes(cpu.ram[water_mons:water_mons + 20]) == water_sentinel)
+
+    # and with the randomizer off, nothing at all should move
+    cpu2 = Cpu(rom, bank)
+    cpu2.ram[grass_rate] = 25
+    for slot in range(10):
+        cpu2.ram[grass_mons + slot * 2] = 3 + slot
+        cpu2.ram[grass_mons + slot * 2 + 1] = 1 + slot * 7
+    before = bytes(cpu2.ram[grass_mons:grass_mons + 20])
+    cpu2.run(syms["RandoRemapWildData"][1])
+    check("wild: untouched when randomizer is off",
+          bytes(cpu2.ram[grass_mons:grass_mons + 20]) == before)
+
+
 def main():
     rom_path = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "pokered.gbc"
     sym_path = rom_path.with_suffix(".sym")
@@ -453,6 +501,9 @@ def main():
     distinct = len({maps[s] for s in seeds})
     check("different seeds give different maps", distinct == len(seeds),
           f"only {distinct} distinct maps from {len(seeds)} seeds")
+
+    print("\nwild encounter remap")
+    wild_data_test(rom, syms, 0x12345678, maps[0x12345678], check)
 
     fixed = sum(1 for s in pool if maps[0x12345678][s] == s)
     print(f"\n  (seed $12345678 leaves {fixed}/{len(pool)} species unchanged)")
