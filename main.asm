@@ -477,6 +477,7 @@ INCLUDE "engine/movie/title.asm"
 INCLUDE "audio/pause_resume_music.asm"
 INCLUDE "engine/battle/prevent_invalid_encounters.asm"
 INCLUDE "engine/items/sort_items.asm"
+INCLUDE "engine/randomizer/randomizer.asm"
 
 SECTION "Silph Card Key Scripts", ROMX
 

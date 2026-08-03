@@ -2764,6 +2764,10 @@ wDayCareMonOT::   ds NAME_LENGTH
 
 wDayCareMon:: box_struct wDayCareMon
 
+; PureRGBnote: ADDED: randomizer seed, 0 = not a randomizer game.
+; Must stay last in main data; anything inserted earlier shifts existing saves.
+wRandoSeed:: ds 4
+
 wMainDataEnd::
 
 
