@@ -360,6 +360,7 @@ StartNewGame:
 	res BIT_DEBUG_MODE, [hl]
 	; fallthrough
 StartNewGameDebug:
+	callfar RandoNewGame ; PureRGBnote: ADDED: randomizer mode
 	call OakSpeech
 IF DEF(_DEBUG)
 	ld a, [wStatusFlags6]

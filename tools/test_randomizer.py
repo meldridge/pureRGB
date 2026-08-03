@@ -41,8 +41,12 @@ class Cpu:
 
     def wr(self, addr, val):
         addr &= 0xFFFF
+        if 0x2000 <= addr < 0x4000:
+            # rom bank select, so calls that switch banks land in the right code
+            self.bank = (val & 0x7F) or 1
+            return
         if addr < 0x8000:
-            return  # MBC register write (rRAMG/rBMODE/rRAMB) -- no effect here
+            return  # other MBC registers (rRAMG/rBMODE/rRAMB) -- no effect here
         self.ram[addr] = val & 0xFF
 
     def rd16(self, addr):
@@ -505,6 +509,35 @@ def apply_species_test(rom, syms, seed, species_map, pool, check):
           all(call_party(s, False) == s for s in sample))
 
 
+def new_game_test(rom, syms, check):
+    """RandoNewGame is the on/off gate: it must arm or disarm on every new game."""
+    bank, entry = syms["RandoNewGame"]
+    magic, sseed = syms["sRandoMagic"][1], syms["sRandoSeed"][1]
+    opts3 = syms["wOptions3"][1]
+    randomizer_bit = 7
+
+    def run(option_on, stale):
+        cpu = Cpu(rom, bank)
+        cpu.ram[opts3] = (1 << randomizer_bit) if option_on else 0
+        if stale:  # leftover state from a previous randomizer game
+            cpu.ram[magic:magic + 4] = b"RAND"
+            cpu.ram[sseed:sseed + 4] = bytes([9, 9, 9, 9])
+        cpu.ram[syms["hRandomAdd"][1]] = 0x3C
+        cpu.ram[syms["hRandomSub"][1]] = 0x91
+        # RandoNewGame calls Random, which bank switches and restores from here
+        cpu.ram[syms["hLoadedROMBank"][1]] = bank
+        cpu.run(entry)
+        return (bytes(cpu.ram[magic:magic + 4]), bytes(cpu.ram[sseed:sseed + 4]))
+
+    m_on, s_on = run(True, False)
+    check("new game: option on arms the randomizer", m_on == b"RAND")
+    check("new game: rolled seed is nonzero", any(s_on))
+
+    m_off, s_off = run(False, True)
+    check("new game: option off clears stale magic", m_off != b"RAND")
+    check("new game: option off clears stale seed", not any(s_off))
+
+
 def main():
     rom_path = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "pokered.gbc"
     sym_path = rom_path.with_suffix(".sym")
@@ -554,6 +587,9 @@ def main():
 
     print("\nsingle species lookup (rod hook)")
     apply_species_test(rom, syms, 0x12345678, maps[0x12345678], pool, check)
+
+    print("\nnew game gate")
+    new_game_test(rom, syms, check)
 
     fixed = sum(1 for s in pool if maps[0x12345678][s] == s)
     print(f"\n  (seed $12345678 leaves {fixed}/{len(pool)} species unchanged)")

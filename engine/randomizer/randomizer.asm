@@ -165,14 +165,48 @@ RandoRemapWildData::
 .done
 	jp RandoSramOff
 
+; Called when a new game starts. Turns the randomizer on for this save if the
+; option is set, and off otherwise, so a seed from a previous randomizer game
+; can never leak into a normal one.
+RandoNewGame::
+	ld a, [wOptions3]
+	bit BIT_RANDOMIZER, a
+	jp z, RandoClearGame
+	call RandoSramOn
+	; hRandomAdd and hRandomSub are stirred every frame, so this differs between
+	; runs. Player entered seeds go through RandoStartGame instead.
+	ldh a, [hRandomAdd]
+	ld [sRandoSeed], a
+	ldh a, [hRandomSub]
+	ld [sRandoSeed + 1], a
+	call Random
+	ld [sRandoSeed + 2], a
+	call Random
+	ld [sRandoSeed + 3], a
+	; an all zero seed would read as "not a randomizer game"
+	ld hl, sRandoSeed
+	ld a, [hli]
+	or [hl]
+	inc hl
+	or [hl]
+	inc hl
+	or [hl]
+	jr nz, RandoFinishStart
+	ld a, 1
+	ld [sRandoSeed], a
+	jr RandoFinishStart
+
 ; Starts a randomizer game using the 4 byte seed at hl.
-; Writes the magic so the state is recognised, and clears sRandoMapSeed so the
-; permutation is rebuilt on first use.
 RandoStartGame::
 	call RandoSramOn
 	ld de, sRandoSeed
 	ld c, 4
 	call RandoCopyBytes
+	; fall through
+
+; Writes the magic so the state is recognised, and clears sRandoMapSeed so the
+; permutation is rebuilt on first use. Assumes sram is on.
+RandoFinishStart:
 	ld hl, sRandoMagic
 	ld a, $52
 	ld [hli], a
