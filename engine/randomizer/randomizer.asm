@@ -340,6 +340,7 @@ GenerateSpeciesMap:
 	call RandoCopyBytes
 
 	call ShuffleBuckets
+	call HmGuardrail
 
 	; pool entry i is replaced by whatever landed in shuffle slot i
 	ld hl, RandoPool
@@ -360,6 +361,159 @@ GenerateSpeciesMap:
 	inc de
 	dec c
 	jr nz, .assign
+	ret
+
+; Guarantees at least one species catchable before Surf is needed can learn each
+; field move. Without it a seed can be unwinnable. With 88 anchors it almost
+; never has to do anything, but "almost never" isn't a guarantee.
+HmGuardrail:
+	xor a
+	ld [sRandoAnchorNext], a
+	ld a, 1 ; bit 0 = CUT, 1 = SURF, 2 = STRENGTH
+	ld [sRandoHmMask], a
+.nextMove
+	call AnchorHasMove
+	jr c, .satisfied
+	call RepairMove
+.satisfied
+	ld a, [sRandoHmMask]
+	add a
+	ld [sRandoHmMask], a
+	cp 1 << 3
+	jr nz, .nextMove
+	ret
+
+; carry set if some anchor's replacement learns the move in sRandoHmMask.
+AnchorHasMove:
+	ld hl, RandoAnchors
+	ld b, RANDO_NUM_ANCHORS
+.loop
+	ld a, [hli]
+	push hl
+	push bc
+	call ImageHasMove
+	pop bc
+	pop hl
+	ret c
+	dec b
+	jr nz, .loop
+	and a ; clear carry
+	ret
+
+; a = pool position. Carry set if the species now in that slot learns the move.
+ImageHasMove:
+	ld hl, sRandoShuffle
+	ld d, 0
+	ld e, a
+	add hl, de
+	ld a, [hl]
+	ld hl, RandoHmLearners
+	ld e, a
+	add hl, de
+	ld a, [sRandoHmMask]
+	and [hl]
+	ret z ; no carry
+	scf
+	ret
+
+; Swaps a learner into an anchor slot. Stays inside the anchor's bucket so the
+; balance matching still holds; if that bucket has no learner, tries the next
+; anchor.
+;
+; Each repair spends a different anchor. Restarting from the first one every
+; time meant a later move's repair could swap away the image an earlier one had
+; just put there, leaving the earlier move unsatisfied again.
+RepairMove:
+	ld a, RANDO_NUM_ANCHORS
+	ld hl, sRandoAnchorNext
+	sub [hl]
+	ret z ; every anchor already spent
+	ld b, a
+	ld a, [sRandoAnchorNext]
+	ld c, a
+	ld hl, RandoAnchors
+	ld d, 0
+	ld e, a
+	add hl, de
+.anchorLoop
+	ld a, [hli]
+	ld [sRandoI], a
+	push hl
+	push bc
+	call FindLearnerInBucket
+	pop bc
+	pop hl
+	jr c, .found
+	inc c
+	dec b
+	jr nz, .anchorLoop
+	ret ; no bucket can supply one, leave the seed as it is
+.found
+	ld [sRandoJ], a
+	inc c
+	ld a, c
+	ld [sRandoAnchorNext], a
+	jp SwapShuffleEntries
+
+; Scans the bucket holding the pool position in sRandoI for a slot whose species
+; learns the move. Carry set and a = that position if found.
+FindLearnerInBucket:
+	ld hl, RandoBucketBounds + 1
+	ld c, 0
+.findBucket
+	ld a, [hli]
+	ld b, a ; bucket end
+	ld a, [sRandoI]
+	cp b
+	jr c, .gotBucket
+	inc c
+	jr .findBucket
+.gotBucket
+	ld hl, RandoBucketBounds
+	ld d, 0
+	ld e, c
+	add hl, de
+	ld a, [hl]
+	ld [sRandoLo], a
+.scan
+	ld a, [sRandoLo]
+	cp b
+	jr nc, .notFound
+	push bc
+	call ImageHasMove
+	pop bc
+	jr c, .found
+	ld hl, sRandoLo
+	inc [hl]
+	jr .scan
+.found
+	ld a, [sRandoLo]
+	scf
+	ret
+.notFound
+	and a
+	ret
+
+; Swaps sRandoShuffle[sRandoI] and sRandoShuffle[sRandoJ].
+SwapShuffleEntries:
+	ld hl, sRandoShuffle
+	ld a, [sRandoI]
+	ld d, 0
+	ld e, a
+	add hl, de
+	push hl
+	ld hl, sRandoShuffle
+	ld a, [sRandoJ]
+	ld d, 0
+	ld e, a
+	add hl, de
+	pop de
+	ld a, [hl]
+	ld b, a
+	ld a, [de]
+	ld [hl], a
+	ld a, b
+	ld [de], a
 	ret
 
 ; Fisher-Yates over each bucket of sRandoShuffle independently, so a species'

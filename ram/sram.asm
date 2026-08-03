@@ -45,6 +45,8 @@ sRandoRngTemp:: ds 4
 sRandoLo:: db
 sRandoI:: db
 sRandoJ:: db
+sRandoHmMask:: db
+sRandoAnchorNext:: db
 
 ; still quite a bit of space left here, around 1000 bytes
 

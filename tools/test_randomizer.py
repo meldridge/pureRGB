@@ -388,16 +388,20 @@ def parse_pool():
         m = re.match(r"^const_skip\s*(\d*)$", line)
         if m:
             index += int(m.group(1) or 1)
-    bounds, pool, in_bounds = [], [], False
+    sections, current = {}, None
     for line in text.splitlines():
         s = line.split(";")[0].strip()
-        if s.startswith("RandoBucketBounds"): in_bounds = True; continue
-        if s.startswith("RandoPool"): in_bounds = False; continue
+        m = re.match(r"^(Rando\w+)::", s)
+        if m:
+            current = m.group(1)
+            sections[current] = []
+            continue
         m = re.match(r"^db\s+(\S+)$", s)
-        if not m: continue
-        if in_bounds: bounds.append(int(m.group(1)))
-        else: pool.append(names[m.group(1)])
-    return pool, bounds
+        if m and current:
+            v = m.group(1)
+            sections[current].append(names[v] if v in names else int(v))
+    return (sections["RandoPool"], sections["RandoBucketBounds"],
+            sections["RandoHmLearners"], sections["RandoAnchors"])
 
 
 def generate(rom, syms, seed):
@@ -557,7 +561,7 @@ def main():
     sym_path = rom_path.with_suffix(".sym")
     rom = rom_path.read_bytes()
     syms = load_symbols(sym_path)
-    pool, bounds = parse_pool()
+    pool, bounds, hm_learners, anchors = parse_pool()
     poolset = set(pool)
     bucket_of = {}
     for b in range(len(bounds) - 1):
@@ -588,7 +592,26 @@ def main():
         check("non-pool species map to themselves", all(m[i] == i for i in non_pool))
         check("not the identity permutation", any(m[s] != s for s in pool),
               "every species mapped to itself")
+        for bit, move in enumerate(("CUT", "SURF", "STRENGTH")):
+            reachable = [hm_learners[m[pool[p]]] & (1 << bit) for p in anchors]
+            check(f"a catchable mon can learn {move}", any(reachable))
         print()
+
+    # wider sweep: the invariants must hold for every seed, not just five
+    sweep_fail = []
+    sweep = [(i * 0x9E3779B1) & 0xFFFFFFFF or 1 for i in range(1, 26)]
+    for seed in sweep:
+        m, _ = generate(rom, syms, seed)
+        images = [m[s] for s in pool]
+        if sorted(images) != sorted(pool):
+            sweep_fail.append((seed, "not a bijection"))
+        if any(bucket_of[m[s]] != bucket_of[s] for s in pool):
+            sweep_fail.append((seed, "bucket escaped"))
+        for bit, move in enumerate(("CUT", "SURF", "STRENGTH")):
+            if not any(hm_learners[m[pool[p]]] & (1 << bit) for p in anchors):
+                sweep_fail.append((seed, f"no {move} user"))
+    check(f"sweep of {len(sweep)} seeds holds every invariant", not sweep_fail,
+          "; ".join(f"${s:08X} {w}" for s, w in sweep_fail[:4]))
 
     m1, _ = generate(rom, syms, 0x12345678)
     check("deterministic (same seed twice)", m1 == maps[0x12345678])
