@@ -139,7 +139,7 @@ DisplayNamingScreenWrap:
 	cp NAME_BALL_SCREEN
 	jr z, .getBallColor
 	cp NAME_BOX_SCREEN
-	jr z, .skipBallColor
+	jr nc, .skipBallColor ; PureRGBnote: CHANGED: seed screen has no mon to animate either
 	farcall AnimatePartyMon_ForceSpeed1
 	jr .skipBallColor
 .getBallColor
@@ -476,6 +476,8 @@ CalcStringLength:
 PrintNamingText:
 	hlcoord 0, 1
 	ld a, [wNamingScreenType]
+	cp NAME_SEED_SCREEN ; PureRGBnote: ADDED: randomizer mode
+	jr z, .nameSeed
 	cp NAME_BOX_SCREEN
 	jr z, .nameBox
 	ld de, YourTextString
@@ -522,6 +524,13 @@ PrintNamingText:
 	hlcoord 3, 1
 	ld de, PCBoxString
 	jp PlaceString
+.nameSeed
+	hlcoord 1, 3
+	ld de, SeedBlankString
+	call PlaceString
+	hlcoord 1, 1
+	ld de, SeedString
+	jp PlaceString
 
 
 YourTextString:
@@ -537,3 +546,10 @@ NameTextString:
 
 PCBoxString:
 	db "<PC> BOX@"
+
+; PureRGBnote: ADDED: randomizer mode
+SeedString:
+	db "RANDOMIZER SEED@"
+
+SeedBlankString:
+	db "BLANK FOR RANDOM@"

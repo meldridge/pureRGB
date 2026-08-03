@@ -172,9 +172,53 @@ RandoNewGame::
 	ld a, [wOptions3]
 	bit BIT_RANDOMIZER, a
 	jp z, RandoClearGame
+	ld a, NAME_SEED_SCREEN
+	ld [wNamingScreenType], a
+	callfar DisplayNamingScreen
+	; fall through
+
+; Derives the seed from whatever the player typed into wStringBuffer and arms
+; the randomizer. An empty buffer means "pick one for me".
+RandoSeedFromBuffer::
 	call RandoSramOn
-	; hRandomAdd and hRandomSub are stirred every frame, so this differs between
-	; runs. Player entered seeds go through RandoStartGame instead.
+	ld a, [wStringBuffer]
+	cp '@'
+	jr z, .rollSeed
+
+; Fold the typed seed in by xoring each character into the generator state and
+; stepping it, so nearby seeds land far apart. The starting state has to be
+; nonzero, since xorshift can never leave zero.
+	ld hl, sRandoRngState
+	ld a, $9E
+	ld [hli], a
+	ld a, $37
+	ld [hli], a
+	ld a, $79
+	ld [hli], a
+	ld a, $B9
+	ld [hl], a
+	ld hl, wStringBuffer
+.foldLoop
+	ld a, [hli]
+	cp '@'
+	jr z, .foldDone
+	push hl
+	ld hl, sRandoRngState
+	xor [hl]
+	ld [hl], a
+	call RandoRand
+	pop hl
+	jr .foldLoop
+.foldDone
+	ld hl, sRandoRngState
+	ld de, sRandoSeed
+	ld c, 4
+	call RandoCopyBytes
+	jr .checkNotZero
+
+.rollSeed
+; hRandomAdd and hRandomSub are stirred every frame, so a blank entry differs
+; between runs.
 	ldh a, [hRandomAdd]
 	ld [sRandoSeed], a
 	ldh a, [hRandomSub]
@@ -183,7 +227,9 @@ RandoNewGame::
 	ld [sRandoSeed + 2], a
 	call Random
 	ld [sRandoSeed + 3], a
-	; an all zero seed would read as "not a randomizer game"
+
+.checkNotZero
+; an all zero seed would read as "not a randomizer game"
 	ld hl, sRandoSeed
 	ld a, [hli]
 	or [hl]

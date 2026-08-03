@@ -510,32 +510,46 @@ def apply_species_test(rom, syms, seed, species_map, pool, check):
 
 
 def new_game_test(rom, syms, check):
-    """RandoNewGame is the on/off gate: it must arm or disarm on every new game."""
-    bank, entry = syms["RandoNewGame"]
-    magic, sseed = syms["sRandoMagic"][1], syms["sRandoSeed"][1]
-    opts3 = syms["wOptions3"][1]
-    randomizer_bit = 7
+    """The new game gate must arm or disarm the randomizer every time.
 
-    def run(option_on, stale):
+    RandoNewGame itself shows the seed entry screen, which needs a real console,
+    so the seed derivation is tested through RandoSeedFromBuffer -- the half that
+    runs once the player has typed something.
+    """
+    magic, sseed = syms["sRandoMagic"][1], syms["sRandoSeed"][1]
+
+    def seed_from(text):
+        bank, entry = syms["RandoSeedFromBuffer"]
         cpu = Cpu(rom, bank)
-        cpu.ram[opts3] = (1 << randomizer_bit) if option_on else 0
-        if stale:  # leftover state from a previous randomizer game
-            cpu.ram[magic:magic + 4] = b"RAND"
-            cpu.ram[sseed:sseed + 4] = bytes([9, 9, 9, 9])
+        buf = syms["wStringBuffer"][1]
+        encoded = bytes((0x80 + (ord(c) - ord("A"))) for c in text) + b"\x50"
+        cpu.ram[buf:buf + len(encoded)] = encoded
         cpu.ram[syms["hRandomAdd"][1]] = 0x3C
         cpu.ram[syms["hRandomSub"][1]] = 0x91
-        # RandoNewGame calls Random, which bank switches and restores from here
         cpu.ram[syms["hLoadedROMBank"][1]] = bank
         cpu.run(entry)
         return (bytes(cpu.ram[magic:magic + 4]), bytes(cpu.ram[sseed:sseed + 4]))
 
-    m_on, s_on = run(True, False)
-    check("new game: option on arms the randomizer", m_on == b"RAND")
-    check("new game: rolled seed is nonzero", any(s_on))
+    m, s = seed_from("JOLTEON")
+    check("seed: typed seed arms the randomizer", m == b"RAND")
+    check("seed: typed seed is nonzero", any(s))
+    check("seed: same text gives the same seed", seed_from("JOLTEON")[1] == s)
+    check("seed: different text gives a different seed",
+          seed_from("JOLTEOO")[1] != s)
+    check("seed: blank rolls a seed anyway", any(seed_from("")[1]))
 
-    m_off, s_off = run(False, True)
-    check("new game: option off clears stale magic", m_off != b"RAND")
-    check("new game: option off clears stale seed", not any(s_off))
+    # the off path returns before the entry screen, so it can be run whole
+    bank, entry = syms["RandoNewGame"]
+    cpu = Cpu(rom, bank)
+    cpu.ram[syms["wOptions3"][1]] = 0  # BIT_RANDOMIZER clear
+    cpu.ram[magic:magic + 4] = b"RAND"  # stale state from a previous game
+    cpu.ram[sseed:sseed + 4] = bytes([9, 9, 9, 9])
+    cpu.ram[syms["hLoadedROMBank"][1]] = bank
+    cpu.run(entry)
+    check("new game: option off clears stale magic",
+          bytes(cpu.ram[magic:magic + 4]) != b"RAND")
+    check("new game: option off clears stale seed",
+          not any(cpu.ram[sseed:sseed + 4]))
 
 
 def main():

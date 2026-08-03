@@ -94,6 +94,7 @@ DEF FIRST_PARTY_MENU_TEXT_ID EQU const_value
 	const NAME_MON_SCREEN    ; 2
 	const NAME_BALL_SCREEN   ; 3
 	const NAME_BOX_SCREEN    ; 4
+	const NAME_SEED_SCREEN   ; 5
 
 ; Stats box layout (see engine/pokemon/status_screen.asm)
 	const_def
