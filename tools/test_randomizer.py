@@ -458,6 +458,33 @@ def wild_data_test(rom, syms, seed, species_map, check):
           bytes(cpu2.ram[grass_mons:grass_mons + 20]) == before)
 
 
+def apply_species_test(rom, syms, seed, species_map, pool, check):
+    """ApplyRandoSpecies is the single-species entry point the rod hook uses."""
+    bank, entry = syms["ApplyRandoSpecies"]
+
+    def call(species, enabled):
+        cpu = Cpu(rom, bank)
+        if enabled:
+            for i, ch in enumerate(b"RAND"):
+                cpu.ram[syms["sRandoMagic"][1] + i] = ch
+            for i in range(4):
+                cpu.ram[syms["sRandoSeed"][1] + i] = (seed >> (8 * i)) & 0xFF
+        cpu.e = species
+        cpu.b = cpu.c = cpu.d = cpu.h = cpu.l = 0x5A  # canaries
+        cpu.run(entry)
+        return cpu.e, (cpu.b, cpu.c, cpu.h, cpu.l)
+
+    sample = pool[:5] + pool[-5:]
+    check("apply: maps through the table",
+          all(call(s, True)[0] == species_map[s] for s in sample))
+    check("apply: identity when randomizer off",
+          all(call(s, False)[0] == s for s in sample))
+    check("apply: NO_MON passes through", call(0, True)[0] == 0)
+    check("apply: out of range index passes through", call(0xBF, True)[0] == 0xBF)
+    check("apply: preserves bc and hl",
+          all(call(s, True)[1] == (0x5A, 0x5A, 0x5A, 0x5A) for s in sample))
+
+
 def main():
     rom_path = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "pokered.gbc"
     sym_path = rom_path.with_suffix(".sym")
@@ -504,6 +531,9 @@ def main():
 
     print("\nwild encounter remap")
     wild_data_test(rom, syms, 0x12345678, maps[0x12345678], check)
+
+    print("\nsingle species lookup (rod hook)")
+    apply_species_test(rom, syms, 0x12345678, maps[0x12345678], pool, check)
 
     fixed = sum(1 for s in pool if maps[0x12345678][s] == s)
     print(f"\n  (seed $12345678 leaves {fixed}/{len(pool)} species unchanged)")
