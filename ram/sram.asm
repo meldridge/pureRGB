@@ -26,11 +26,17 @@ sBoxRenamedFlags:: flag_array NUM_BOXES ; 2 bytes
 sBoxRenamedFlagsEnd::
 sBoxNames:: ds NUM_BOXES * BOX_NAME_LENGTH ; 72 bytes
 
-; PureRGBnote: ADDED: randomizer species permutation, plus the scratch its
-; generator needs. Lives here rather than in wram because wram bank 1 is full
-; and the game never switches SVBK, so the other banks are unreachable.
-; sRandoMapSeed is the seed the table was built for; a mismatch against
-; wRandoSeed triggers a rebuild, so no caller has to prime it.
+; PureRGBnote: ADDED: randomizer state. Deliberately outside sGameData: adding
+; anything to the main data block moves sGameDataEnd, which changes the range
+; CalcCheckSum covers and makes every existing save fail to load.
+; It also can't live in wram, since bank 1 is full and the game never writes
+; SVBK, leaving the other banks unreachable.
+;
+; sRandoMagic guards against stale bytes here being mistaken for a real seed,
+; since this region isn't checksummed. sRandoMapSeed is the seed sRandoMap was
+; built for; a mismatch triggers a rebuild, so no caller has to prime it.
+sRandoMagic:: ds 4
+sRandoSeed:: ds 4
 sRandoMapSeed:: ds 4
 sRandoMap:: ds NUM_POKEMON_INDEXES + 1
 sRandoShuffle:: ds RANDO_POOL_SIZE

@@ -2,21 +2,38 @@
 ; Species are remapped at lookup time instead of rewriting the ROM tables, so a
 ; single build plays any seed. The permutation lives in sram (wram bank 1 is
 ; full and the game never switches SVBK) and is rebuilt whenever sRandoMapSeed
-; disagrees with wRandoSeed, so callers never have to prime it.
+; disagrees with sRandoSeed, so callers never have to prime it.
 ;
 ; Species are passed in e because rst _Bankswitch clobbers a and bc.
 
 INCLUDE "data/randomizer/species_pool.asm"
 
-; nz if this save is a randomizer game. Clobbers a, hl.
+; nz if this save is a randomizer game. Requires sram enabled. Clobbers a, hl.
 RandoEnabled::
-	ld a, [wRandoSeed]
-	ld hl, wRandoSeed + 1
+	ld hl, sRandoMagic
+	ld a, [hli]
+	cp $52 ; "R"
+	jr nz, .off
+	ld a, [hli]
+	cp $41 ; "A"
+	jr nz, .off
+	ld a, [hli]
+	cp $4E ; "N"
+	jr nz, .off
+	ld a, [hli]
+	cp $44 ; "D"
+	jr nz, .off
+	; magic is good, so a nonzero seed means a randomizer game
+	ld a, [sRandoSeed]
+	ld hl, sRandoSeed + 1
 	or [hl]
 	inc hl
 	or [hl]
 	inc hl
 	or [hl]
+	ret
+.off
+	xor a
 	ret
 
 ; e = species in, e = species out.
@@ -25,14 +42,14 @@ RandoEnabled::
 ApplyRandoSpecies::
 	push hl
 	push bc
-	call RandoEnabled
-	jr z, .done
 	ld a, e
 	and a
 	jr z, .done
 	cp NUM_POKEMON_INDEXES + 1
 	jr nc, .done
 	call RandoSramOn
+	call RandoEnabled
+	jr z, .sramOff
 	push de
 	call EnsureSpeciesMap
 	pop de
@@ -40,17 +57,32 @@ ApplyRandoSpecies::
 	ld d, 0
 	add hl, de
 	ld e, [hl]
+.sramOff
 	call RandoSramOff
 .done
 	pop bc
 	pop hl
 	ret
 
+; nz if this save is a randomizer game, handling sram itself.
+RandoEnabledFar::
+	push hl
+	call RandoSramOn
+	call RandoEnabled
+	push af
+	call RandoSramOff
+	pop af
+	pop hl
+	and a
+	ret
+
 ; Remaps b species bytes starting at hl, stepping c bytes between them.
 ; Used on the wild data ram copies, which interleave levels and species.
 RandoRemapBuffer::
 	push hl
-	call RandoEnabled
+	push bc
+	call RandoEnabledFar
+	pop bc
 	pop hl
 	ret z
 .loop
@@ -67,6 +99,45 @@ RandoRemapBuffer::
 	dec b
 	jr nz, .loop
 	ret
+
+; Starts a randomizer game using the 4 byte seed at hl.
+; Writes the magic so the state is recognised, and clears sRandoMapSeed so the
+; permutation is rebuilt on first use.
+RandoStartGame::
+	call RandoSramOn
+	ld de, sRandoSeed
+	ld c, 4
+	call RandoCopyBytes
+	ld hl, sRandoMagic
+	ld a, $52
+	ld [hli], a
+	ld a, $41
+	ld [hli], a
+	ld a, $4E
+	ld [hli], a
+	ld a, $44
+	ld [hli], a
+	xor a
+	ld hl, sRandoMapSeed
+	ld c, 4
+.clearMapSeed
+	ld [hli], a
+	dec c
+	jr nz, .clearMapSeed
+	jp RandoSramOff
+
+; Turns the randomizer off for this save. Called when starting a normal game so
+; leftover state from a previous randomizer game is never picked up.
+RandoClearGame::
+	call RandoSramOn
+	xor a
+	ld hl, sRandoMagic
+	ld c, 8 ; magic and seed
+.clear
+	ld [hli], a
+	dec c
+	jr nz, .clear
+	jp RandoSramOff
 
 RandoSramOn::
 	ld a, RAMG_SRAM_ENABLE
@@ -86,7 +157,7 @@ RandoSramOff::
 
 ; Assumes sram is already enabled.
 EnsureSpeciesMap::
-	ld hl, wRandoSeed
+	ld hl, sRandoSeed
 	ld de, sRandoMapSeed
 	ld c, 4
 .compare
@@ -100,11 +171,11 @@ EnsureSpeciesMap::
 	ret
 
 GenerateSpeciesMap:
-	ld hl, wRandoSeed
+	ld hl, sRandoSeed
 	ld de, sRandoRngState
 	ld c, 4
 	call RandoCopyBytes
-	ld hl, wRandoSeed
+	ld hl, sRandoSeed
 	ld de, sRandoMapSeed
 	ld c, 4
 	call RandoCopyBytes
