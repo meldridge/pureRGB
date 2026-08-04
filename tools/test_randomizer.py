@@ -371,7 +371,7 @@ def load_symbols(path):
 
 
 def parse_pool():
-    """(pool order, bucket bounds) straight from the generated table."""
+    """Pool order, windows and guardrail tables from the generated file."""
     text = (ROOT / "data/randomizer/species_pool.asm").read_text()
     consts = (ROOT / "constants/pokemon_constants.asm").read_text()
     index, names = None, {}
@@ -400,8 +400,9 @@ def parse_pool():
         if m and current:
             v = m.group(1)
             sections[current].append(names[v] if v in names else int(v))
-    return (sections["RandoPool"], sections["RandoBucketBounds"],
-            sections["RandoHmLearners"], sections["RandoAnchors"])
+    return (sections["RandoPool"], sections["RandoWindowLo"],
+            sections["RandoWindowHi"], sections["RandoHmLearners"],
+            sections["RandoAnchors"])
 
 
 def generate(rom, syms, seed):
@@ -626,12 +627,22 @@ def main():
     sym_path = rom_path.with_suffix(".sym")
     rom = rom_path.read_bytes()
     syms = load_symbols(sym_path)
-    pool, bounds, hm_learners, anchors = parse_pool()
+    pool, win_lo, win_hi, hm_learners, anchors = parse_pool()
     poolset = set(pool)
-    bucket_of = {}
-    for b in range(len(bounds) - 1):
-        for p in pool[bounds[b]:bounds[b + 1]]:
-            bucket_of[p] = b
+    pos_of = {s: i for i, s in enumerate(pool)}
+
+    def in_window(original, replacement):
+        """The replacement must sit inside the original position's window."""
+        return win_lo[pos_of[original]] <= pos_of[replacement] <= win_hi[pos_of[original]]
+
+    sys.path.insert(0, str(ROOT / "tools"))
+    from generate_species_pool import parse_species_constants, LEGENDARY_DEX
+    name_of = parse_species_constants()
+    index_of = {v: k for k, v in name_of.items()}
+    legendary_names = {n: index_of[n] for n in
+                       ("MEWTWO", "MEW", "ARTICUNO", "ZAPDOS", "MOLTRES")}
+    legendaries = set(legendary_names.values())
+    assert len(LEGENDARY_DEX) == len(legendaries), "legendary lists disagree"
 
     failures = []
 
@@ -640,7 +651,7 @@ def main():
         if not ok:
             failures.append(name)
 
-    print(f"rom: {rom_path.name}   pool: {len(pool)} species, {len(bounds) - 1} buckets\n")
+    print(f"rom: {rom_path.name}   pool: {len(pool)} species\n")
 
     seeds = [0x00000001, 0x12345678, 0xDEADBEEF, 0x0000FFFF, 0xA5A5A5A5]
     maps = {}
@@ -652,11 +663,16 @@ def main():
         check("bijection over pool", sorted(images) == sorted(pool),
               f"{len(set(images))} distinct of {len(pool)}")
         check("no value outside pool", all(v in poolset for v in images))
-        check("bucket preserved", all(bucket_of[m[s]] == bucket_of[s] for s in pool))
+        check("replacement within base-stat window",
+              all(in_window(s, m[s]) for s in pool))
         non_pool = [i for i in range(1, 191) if i not in poolset]
         check("non-pool species map to themselves", all(m[i] == i for i in non_pool))
         check("not the identity permutation", any(m[s] != s for s in pool),
               "every species mapped to itself")
+        check("legendaries neither given out nor replaced",
+              all(i not in poolset and m[i] == i for i in legendaries),
+              ", ".join(n for n, i in legendary_names.items()
+                        if i in poolset or m[i] != i))
         for bit, move in enumerate(("CUT", "SURF", "STRENGTH")):
             reachable = [hm_learners[m[pool[p]]] & (1 << bit) for p in anchors]
             check(f"a catchable mon can learn {move}", any(reachable))
@@ -670,8 +686,8 @@ def main():
         images = [m[s] for s in pool]
         if sorted(images) != sorted(pool):
             sweep_fail.append((seed, "not a bijection"))
-        if any(bucket_of[m[s]] != bucket_of[s] for s in pool):
-            sweep_fail.append((seed, "bucket escaped"))
+        if any(not in_window(s, m[s]) for s in pool):
+            sweep_fail.append((seed, "left its window"))
         for bit, move in enumerate(("CUT", "SURF", "STRENGTH")):
             if not any(hm_learners[m[pool[p]]] & (1 << bit) for p in anchors):
                 sweep_fail.append((seed, f"no {move} user"))

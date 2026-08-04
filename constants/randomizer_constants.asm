@@ -2,5 +2,4 @@
 ; Sizes of the randomizer species pool in data/randomizer/species_pool.asm.
 ; Separate from the data so wram.asm can size its buffers.
 
-DEF RANDO_POOL_SIZE   EQU 151
-DEF RANDO_NUM_BUCKETS EQU 8
+DEF RANDO_POOL_SIZE EQU 146

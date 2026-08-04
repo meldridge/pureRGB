@@ -44,6 +44,8 @@ sRandoI:: db
 sRandoJ:: db
 sRandoHmMask:: db
 sRandoAnchorNext:: db
+sRandoPI:: db
+sRandoPJ:: db
 
 ; still quite a bit of space left here, around 1000 bytes
 

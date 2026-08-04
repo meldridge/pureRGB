@@ -374,7 +374,7 @@ GenerateSpeciesMap:
 	ld c, RANDO_POOL_SIZE
 	call RandoCopyBytes
 
-	call ShuffleBuckets
+	call ShuffleWithinWindows
 	call HmGuardrail
 
 	; pool entry i is replaced by whatever landed in shuffle slot i
@@ -471,7 +471,7 @@ RepairMove:
 	ld [sRandoI], a
 	push hl
 	push bc
-	call FindLearnerInBucket
+	call FindLearnerInWindow
 	pop bc
 	pop hl
 	jr c, .found
@@ -486,34 +486,37 @@ RepairMove:
 	ld [sRandoAnchorNext], a
 	jp SwapShuffleEntries
 
-; Scans the bucket holding the pool position in sRandoI for a slot whose species
-; learns the move. Carry set and a = that position if found.
-FindLearnerInBucket:
-	ld hl, RandoBucketBounds + 1
-	ld c, 0
-.findBucket
-	ld a, [hli]
-	ld b, a ; bucket end
+; Scans the window of the position in sRandoI for a slot whose species learns the
+; move and can trade places with it. Carry set and a = that position if found.
+FindLearnerInWindow:
 	ld a, [sRandoI]
-	cp b
-	jr c, .gotBucket
-	inc c
-	jr .findBucket
-.gotBucket
-	ld hl, RandoBucketBounds
 	ld d, 0
-	ld e, c
+	ld e, a
+	ld hl, RandoWindowLo
 	add hl, de
 	ld a, [hl]
 	ld [sRandoLo], a
+	ld hl, RandoWindowHi
+	add hl, de
+	ld b, [hl]
 .scan
 	ld a, [sRandoLo]
 	cp b
+	jr z, .check
 	jr nc, .notFound
+.check
 	push bc
 	call ImageHasMove
 	pop bc
+	jr nc, .next
+	; the swap still has to respect both windows
+	push bc
+	ld a, [sRandoLo]
+	ld [sRandoJ], a
+	call SwapFitsWindows
+	pop bc
 	jr c, .found
+.next
 	ld hl, sRandoLo
 	inc [hl]
 	jr .scan
@@ -524,6 +527,20 @@ FindLearnerInBucket:
 .notFound
 	and a
 	ret
+
+; Carry if sRandoI and sRandoJ may exchange occupants.
+SwapFitsWindows:
+	ld a, [sRandoI]
+	call OccupantOrigPos
+	ld b, a
+	ld a, [sRandoJ]
+	call FitsWindow
+	ret nc
+	ld a, [sRandoJ]
+	call OccupantOrigPos
+	ld b, a
+	ld a, [sRandoI]
+	jp FitsWindow
 
 ; Swaps sRandoShuffle[sRandoI] and sRandoShuffle[sRandoJ].
 SwapShuffleEntries:
@@ -547,41 +564,61 @@ SwapShuffleEntries:
 	ld [de], a
 	ret
 
-; Fisher-Yates over each bucket of sRandoShuffle independently, so a species'
-; replacement stays inside its own base-stat band.
-ShuffleBuckets:
-	ld b, 0
-.nextBucket
+DEF RANDO_SHUFFLE_PASSES EQU 2
+
+; Every position offers to trade with a random one inside its window. A trade is
+; only taken if both species still sit within range of where they would land, so
+; the tolerance holds however many times an entry moves.
+ShuffleWithinWindows:
+	ld b, RANDO_SHUFFLE_PASSES
+.nextPass
+	ld c, 0
+.nextPosition
 	push bc
-	ld hl, RandoBucketBounds
-	ld d, 0
-	ld e, b
-	add hl, de
-	ld a, [hli]
-	ld d, [hl]
-	ld e, a
-	call ShuffleRange
+	ld a, c
+	ld [sRandoI], a
+	call TryWindowSwap
 	pop bc
-	inc b
-	ld a, b
-	cp RANDO_NUM_BUCKETS
-	jr nz, .nextBucket
+	inc c
+	ld a, c
+	cp RANDO_POOL_SIZE
+	jr nz, .nextPosition
+	dec b
+	jr nz, .nextPass
 	ret
 
-; Shuffles sRandoShuffle[e .. d-1].
-ShuffleRange:
-	ld a, d
-	sub e
-	cp 2
-	ret c ; 0 or 1 entries, nothing to do
-	ld a, e
-	ld [sRandoLo], a
-	ld a, d
-	dec a
-	ld [sRandoI], a
-.loop
-	; pick j somewhere in [lo, i]
+TryWindowSwap:
+	call PickWindowPartner
 	ld a, [sRandoI]
+	call OccupantOrigPos
+	ld [sRandoPI], a
+	ld a, [sRandoJ]
+	call OccupantOrigPos
+	ld [sRandoPJ], a
+	ld a, [sRandoPI]
+	ld b, a
+	ld a, [sRandoJ]
+	call FitsWindow
+	ret nc
+	ld a, [sRandoPJ]
+	ld b, a
+	ld a, [sRandoI]
+	call FitsWindow
+	ret nc
+	jp SwapShuffleEntries
+
+; Chooses a random position inside the window of sRandoI, into sRandoJ.
+PickWindowPartner:
+	ld a, [sRandoI]
+	ld d, 0
+	ld e, a
+	ld hl, RandoWindowLo
+	add hl, de
+	ld a, [hl]
+	ld [sRandoLo], a
+	ld hl, RandoWindowHi
+	add hl, de
+	ld a, [hl]
 	ld hl, sRandoLo
 	sub [hl]
 	inc a
@@ -590,32 +627,39 @@ ShuffleRange:
 	ld hl, sRandoLo
 	add [hl]
 	ld [sRandoJ], a
+	ret
 
-	; swap shuffle[i] and shuffle[j]
+; a = position, returns a = the pool position the species there came from
+OccupantOrigPos:
 	ld hl, sRandoShuffle
-	ld a, [sRandoI]
 	ld d, 0
 	ld e, a
 	add hl, de
-	push hl
-	ld hl, sRandoShuffle
-	ld a, [sRandoJ]
-	ld d, 0
-	ld e, a
-	add hl, de
-	pop de
 	ld a, [hl]
-	ld b, a
-	ld a, [de]
-	ld [hl], a
-	ld a, b
-	ld [de], a
+	ld hl, RandoPoolPos
+	ld e, a
+	add hl, de
+	ld a, [hl]
+	ret
 
-	ld hl, sRandoI
-	dec [hl]
-	ld a, [sRandoLo]
+; a = target position, b = pool position of the species. Carry if it fits.
+FitsWindow:
+	ld d, 0
+	ld e, a
+	ld hl, RandoWindowLo
+	add hl, de
+	ld a, b
 	cp [hl]
-	jr c, .loop
+	jr c, .no
+	ld hl, RandoWindowHi
+	add hl, de
+	ld a, [hl]
+	cp b
+	jr c, .no
+	scf
+	ret
+.no
+	and a
 	ret
 
 ; a = random value in [0, c). c must be nonzero.
