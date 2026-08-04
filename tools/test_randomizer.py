@@ -607,6 +607,17 @@ def options_row_test(check):
           bit_clear_x == row.index("OFF"),
           f"bit-clear x is {bit_clear_x}, OFF is at column {row.index('OFF')}")
 
+    # The seed screen writes its hint on row 3, where the entry underscores
+    # start at column 10. Anything longer than 9 characters gets overwritten.
+    naming = (ROOT / "engine/menus/naming_screen.asm").read_text()
+    m = re.search(r'SeedBlankString:\s*\n\s*db\s+"([^"]*)@"', naming)
+    if not m:
+        check("seed screen: hint string present", False, "not found")
+        return
+    hint = m.group(1)
+    check("seed screen: hint fits before the entry field", len(hint) <= 9,
+          f'"{hint}" is {len(hint)} chars, only 9 columns are free')
+
 
 def main():
     rom_path = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "pokered.gbc"

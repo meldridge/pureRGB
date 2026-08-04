@@ -547,9 +547,11 @@ NameTextString:
 PCBoxString:
 	db "<PC> BOX@"
 
-; PureRGBnote: ADDED: randomizer mode
+; PureRGBnote: ADDED: randomizer mode.
+; The entry underscores start at column 10 on row 3, so SeedBlankString has to
+; fit in columns 1-9.
 SeedString:
 	db "RANDOMIZER SEED@"
 
 SeedBlankString:
-	db "BLANK FOR RANDOM@"
+	db "OR BLANK@"

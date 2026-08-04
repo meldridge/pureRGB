@@ -9,10 +9,12 @@ _RandomizerSeedText::
 
 _RandomizerInfoText::
 	text "Shuffles wild"
-	line "#MON, trainer"
-	cont "teams and starters"
-	cont "when you start a"
-	cont "new game."
+	line "#MON, trainers"
+	cont "and starters on"
+	cont "a new game."
+	para "Leave the seed"
+	line "blank to get a"
+	cont "random one."
 	prompt
 
 _OaksLabYouWantRandomizedText::
