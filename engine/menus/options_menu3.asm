@@ -16,7 +16,7 @@ Options3XPosBitData:
 	dw wEventFlags + (FLAG_FLASHING_REDUCED / 8)
 	db 15, 11, FLAG_IMPERIAL_METRIC % 8
 	dw wEventFlags + (FLAG_IMPERIAL_METRIC / 8)
-	db 14, 11, BIT_RANDOMIZER
+	db 11, 14, BIT_RANDOMIZER
 	dw wOptions3
 
 OptionsMenu3Header:

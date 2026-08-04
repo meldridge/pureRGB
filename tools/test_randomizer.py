@@ -577,6 +577,37 @@ def new_game_test(rom, syms, check):
           not any(cpu.ram[sseed:sseed + 4]))
 
 
+def options_row_test(check):
+    """The RANDOM row's "bit set" x must sit on ON, not OFF.
+
+    Options3XPosBitData lists the bit-set x position first, and SetSingleBitOption
+    treats it as "cursor here means the bit is set". Getting it the wrong way round
+    shows ON for a cleared bit, so the menu reads ON while the feature is off --
+    and nothing in the rom tests can see it.
+    """
+    src = (ROOT / "engine/menus/options_menu3.asm").read_text()
+
+    m = re.search(r'next\s+"( RANDOM:.*?)@?"', src)
+    if not m:
+        check("options: RANDOM row present", False, "row text not found")
+        return
+    row = m.group(1)
+    on_col = row.index("ON")
+
+    m = re.search(r"db\s+(\d+)\s*,\s*(\d+)\s*,\s*BIT_RANDOMIZER", src)
+    if not m:
+        check("options: RANDOM bit data present", False, "table entry not found")
+        return
+    bit_set_x, bit_clear_x = int(m.group(1)), int(m.group(2))
+
+    # text is placed at hlcoord 1, so the cursor column equals the string index
+    check("options: ON is the bit-set position", bit_set_x == on_col,
+          f"bit-set x is {bit_set_x}, ON is at column {on_col}")
+    check("options: OFF is the bit-clear position",
+          bit_clear_x == row.index("OFF"),
+          f"bit-clear x is {bit_clear_x}, OFF is at column {row.index('OFF')}")
+
+
 def main():
     rom_path = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "pokered.gbc"
     sym_path = rom_path.with_suffix(".sym")
@@ -648,6 +679,9 @@ def main():
 
     print("\nnew game gate")
     new_game_test(rom, syms, check)
+
+    print("\noptions row wiring")
+    options_row_test(check)
 
     fixed = sum(1 for s in pool if maps[0x12345678][s] == s)
     print(f"\n  (seed $12345678 leaves {fixed}/{len(pool)} species unchanged)")
