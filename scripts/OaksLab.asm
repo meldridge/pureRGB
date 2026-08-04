@@ -312,8 +312,10 @@ OaksLabRivalChoosesStarterScript:
 	call HideObject
 	call Delay3
 	ld a, [wRivalStarterTemp]
-	ld [wRivalStarter], a
+	ld [wRivalStarter], a ; which of the three he took, used to pick his party later
 	ld [wCurPartySpecies], a
+	callfar RandoRemapPartySpecies ; PureRGBnote: ADDED: name him the mon he'll actually field
+	ld a, [wCurPartySpecies]
 	ld [wNamedObjectIndex], a
 	call GetMonName
 	ld a, OAKSLAB_RIVAL
@@ -860,8 +862,20 @@ OaksLabMonChoiceMenu:
 	ld [wDoNotWaitForButtonPressAfterDisplayingText], a
 	call YesNoChoice ; yes/no menu
 	jr nz, OaksLabMonChoiceEnd
-	ld a, [wCurPartySpecies]
+	; PureRGBnote: CHANGED: wPlayerStarter records which of the three was taken
+	; rather than the species, which the randomizer changes.
+	ld a, [wSpriteIndex]
+	ld b, STARTER1
+	cp OAKSLAB_CHARMANDER_POKE_BALL
+	jr z, .gotPlayerStarter
+	ld b, STARTER2
+	cp OAKSLAB_SQUIRTLE_POKE_BALL
+	jr z, .gotPlayerStarter
+	ld b, STARTER3
+.gotPlayerStarter
+	ld a, b
 	ld [wPlayerStarter], a
+	ld a, [wCurPartySpecies]
 	ld [wNamedObjectIndex], a
 	call GetMonName
 	ld a, [wSpriteIndex]

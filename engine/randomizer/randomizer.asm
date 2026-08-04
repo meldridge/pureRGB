@@ -119,9 +119,10 @@ RandoRemapPartySpecies::
 .done
 	jp RandoSramOff
 
-; Remaps the player's and rival's starters once Oak's Lab has stashed them.
-; The rival keeps picking positionally, so whatever STARTER2 became is still
-; what he takes if you chose STARTER1.
+; Remaps the starter being shown and given in Oak's Lab.
+; wPlayerStarter and wRivalStarter are left holding the original constants:
+; StarterToPartyID identifies a rival party by comparing against them, so they
+; have to stay positional or every rival battle picks the wrong team.
 RandoRemapStarters::
 	call RandoSramOn
 	call RandoEnabled
@@ -132,11 +133,6 @@ RandoRemapStarters::
 	ld a, e
 	ld [wCurPartySpecies], a
 	ld [wPokedexNum], a
-	ld a, [wRivalStarterTemp]
-	ld e, a
-	call RandoMapSpecies
-	ld a, e
-	ld [wRivalStarterTemp], a
 .done
 	jp RandoSramOff
 
