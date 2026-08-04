@@ -538,24 +538,26 @@ def new_game_test(rom, syms, check):
                 rendered)
 
     def decode(rendered):
-        """Charmap: '0' is $F6, 'A' is $80, '@' terminates."""
+        """Charmap: 'A' is $80, '@' terminates."""
         out = ""
         for b in rendered:
             if b == 0x50:
                 break
-            if 0xF6 <= b <= 0xFF:
-                out += chr(ord("0") + b - 0xF6)
-            elif 0x80 <= b <= 0x85:
-                out += chr(ord("A") + b - 0x80)
-            else:
-                out += "?"
+            out += chr(ord("A") + b - 0x80) if 0x80 <= b <= 0x99 else "?"
         return out
 
     m, s, shown = seed_from("JOLTEON")
-    # rendered most significant byte first
-    expected = "".join(f"{b:02X}" for b in reversed(s))
-    check("seed: displayed hex matches the stored seed", decode(shown) == expected,
-          f"showed {decode(shown)!r}, seed is {expected}")
+    check("seed: typed text is shown back unchanged", decode(shown) == "JOLTEON",
+          f"showed {decode(shown)!r}")
+
+    # A rolled seed is only useful if typing it back reproduces the same world.
+    _, rolled_seed, rolled_shown = seed_from("")
+    rolled_text = decode(rolled_shown)
+    check("seed: rolled seed is typable", rolled_text.isalpha() and rolled_text,
+          f"showed {rolled_text!r}")
+    check("seed: rolled seed round-trips when typed back",
+          seed_from(rolled_text)[1] == rolled_seed,
+          f"{rolled_text!r} re-derives to a different seed")
     check("seed: typed seed arms the randomizer", m == b"RAND")
     check("seed: typed seed is nonzero", any(s))
     check("seed: same text gives the same seed", seed_from("JOLTEON")[1] == s)

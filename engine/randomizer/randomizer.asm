@@ -8,6 +8,8 @@
 
 INCLUDE "data/randomizer/species_pool.asm"
 
+DEF RANDO_SEED_LENGTH EQU 8 ; must fit the naming screen's NAME_LENGTH - 1
+
 ; nz if this save is a randomizer game. Requires sram enabled. Clobbers a, hl.
 RandoEnabled::
 	ld hl, sRandoMagic
@@ -184,13 +186,15 @@ RandoSeedFromBuffer::
 	ret
 
 ; The derivation on its own, with no ui, so it can be tested off-console.
+; wStringBuffer is left holding the seed text either way, so what gets shown to
+; the player is always something they can type back in.
 RandoDeriveSeed::
 	call RandoSramOn
 	ld a, [wStringBuffer]
 	cp '@'
-	jr z, .rollSeed
+	call z, InventSeedText
 
-; Fold the typed seed in by xoring each character into the generator state and
+; Fold the seed text in by xoring each character into the generator state and
 ; stepping it, so nearby seeds land far apart. The starting state has to be
 ; nonzero, since xorshift can never leave zero.
 	ld hl, sRandoRngState
@@ -219,19 +223,6 @@ RandoDeriveSeed::
 	ld de, sRandoSeed
 	ld c, 4
 	call RandoCopyBytes
-	jr .checkNotZero
-
-.rollSeed
-; hRandomAdd and hRandomSub are stirred every frame, so a blank entry differs
-; between runs.
-	ldh a, [hRandomAdd]
-	ld [sRandoSeed], a
-	ldh a, [hRandomSub]
-	ld [sRandoSeed + 1], a
-	call Random
-	ld [sRandoSeed + 2], a
-	call Random
-	ld [sRandoSeed + 3], a
 
 .checkNotZero
 ; an all zero seed would read as "not a randomizer game"
@@ -247,6 +238,31 @@ RandoDeriveSeed::
 	ld [sRandoSeed], a
 	jr RandoFinishStart
 
+; Fills wStringBuffer with a random typable seed. Blank entry goes through the
+; same folding as a typed one, so the seed shown back is always re-enterable.
+; hRandomAdd is stirred every frame, so this differs between runs.
+InventSeedText:
+	ld hl, wStringBuffer
+	ld c, RANDO_SEED_LENGTH
+.nextLetter
+	push hl
+	push bc
+	call Random
+	pop bc
+	pop hl
+.reduce
+	cp 26
+	jr c, .gotLetter
+	sub 26
+	jr .reduce
+.gotLetter
+	add 'A'
+	ld [hli], a
+	dec c
+	jr nz, .nextLetter
+	ld [hl], '@'
+	ret
+
 ; Starts a randomizer game using the 4 byte seed at hl.
 RandoStartGame::
 	call RandoSramOn
@@ -254,37 +270,6 @@ RandoStartGame::
 	ld c, 4
 	call RandoCopyBytes
 	; fall through
-
-; Renders sRandoSeed into wStringBuffer as eight hex digits, most significant
-; first, so a rolled seed can be written down and replayed. Assumes sram is on.
-RandoSeedToString:
-	ld hl, sRandoSeed + 3
-	ld de, wStringBuffer
-	ld c, 4
-.byteLoop
-	ld a, [hl]
-	swap a
-	call .nybble
-	ld a, [hl]
-	call .nybble
-	dec hl
-	dec c
-	jr nz, .byteLoop
-	ld a, '@'
-	ld [de], a
-	ret
-.nybble
-	and $0F
-	cp 10
-	jr c, .digit
-	add 'A' - 10
-	jr .store
-.digit
-	add '0'
-.store
-	ld [de], a
-	inc de
-	ret
 
 RandoSeedText:
 	text_far _RandomizerSeedText
@@ -309,7 +294,6 @@ RandoFinishStart:
 	ld [hli], a
 	dec c
 	jr nz, .clearMapSeed
-	call RandoSeedToString
 	jp RandoSramOff
 
 ; Turns the randomizer off for this save. Called when starting a normal game so
