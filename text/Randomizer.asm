@@ -1,10 +1,10 @@
 ; PureRGBnote: ADDED: randomizer mode text.
-; Named the mon you're actually being given, since the vanilla starter prompts
-; state a species and a type that are both wrong once starters are shuffled.
+; text_start is required after a text_ram_* command before prompt or done.
 _RandomizerSeedText::
 	text "Randomizer seed"
 	line "@"
 	text_ram_stringbuffer
+	text_start
 	prompt
 
 _RandomizerInfoText::
@@ -17,11 +17,11 @@ _RandomizerInfoText::
 	cont "random one."
 	prompt
 
+; Generic replacement for the starter prompts, which name a fixed species and type.
 _OaksLabYouWantRandomizedText::
 	text "So! You want"
 	line "this #MON,"
 	cont "@"
 	text_ram_namebuffer
-	text_start
 	text "?"
 	done

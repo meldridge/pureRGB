@@ -138,11 +138,9 @@ RandoRemapStarters::
 .done
 	jp RandoSramOff
 
-; Remaps the wild data ram copies in place, after LoadWildDataCommon has filled
-; them. Slot order is preserved so the palette flags in WildPalettePointers stay
-; aligned with the species they describe.
-; A rate of 0 means that half was never copied, so its buffer is stale and must
-; be left alone.
+; Remaps the wild data ram copies in place, after LoadWildDataCommon fills them.
+; Slot order is kept so the WildPalettePointers flags stay aligned, and a rate of
+; 0 means that buffer was never copied and still holds the last map's data.
 RandoRemapWildData::
 	call RandoSramOn
 	call RandoEnabled
@@ -407,8 +405,7 @@ GenerateSpeciesMap:
 	ret
 
 ; Guarantees at least one species catchable before Surf is needed can learn each
-; field move. Without it a seed can be unwinnable. With 88 anchors it almost
-; never has to do anything, but "almost never" isn't a guarantee.
+; field move, otherwise a seed can be unwinnable.
 HmGuardrail:
 	xor a
 	ld [sRandoAnchorNext], a
@@ -459,13 +456,10 @@ ImageHasMove:
 	scf
 	ret
 
-; Swaps a learner into an anchor slot. Stays inside the anchor's bucket so the
-; balance matching still holds; if that bucket has no learner, tries the next
-; anchor.
-;
-; Each repair spends a different anchor. Restarting from the first one every
-; time meant a later move's repair could swap away the image an earlier one had
-; just put there, leaving the earlier move unsatisfied again.
+; Swaps a learner into an anchor slot, staying inside the anchor's bucket so the
+; balance matching still holds. Falls through to the next anchor if that bucket
+; has no learner, and each repair spends a different anchor so repairs can't
+; undo each other.
 RepairMove:
 	ld a, RANDO_NUM_ANCHORS
 	ld hl, sRandoAnchorNext

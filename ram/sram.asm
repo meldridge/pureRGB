@@ -26,15 +26,12 @@ sBoxRenamedFlags:: flag_array NUM_BOXES ; 2 bytes
 sBoxRenamedFlagsEnd::
 sBoxNames:: ds NUM_BOXES * BOX_NAME_LENGTH ; 72 bytes
 
-; PureRGBnote: ADDED: randomizer state. Deliberately outside sGameData: adding
-; anything to the main data block moves sGameDataEnd, which changes the range
-; CalcCheckSum covers and makes every existing save fail to load.
-; It also can't live in wram, since bank 1 is full and the game never writes
-; SVBK, leaving the other banks unreachable.
-;
-; sRandoMagic guards against stale bytes here being mistaken for a real seed,
-; since this region isn't checksummed. sRandoMapSeed is the seed sRandoMap was
-; built for; a mismatch triggers a rebuild, so no caller has to prime it.
+; PureRGBnote: ADDED: randomizer state.
+; Must stay outside sGameData: growing that block moves sGameDataEnd and every
+; existing save then fails its checksum. It can't live in wram either, since
+; bank 1 is full and the game never writes SVBK.
+; sRandoMagic marks the block as ours, as nothing here is checksummed.
+; sRandoMapSeed is the seed sRandoMap was built for; a mismatch rebuilds it.
 sRandoMagic:: ds 4
 sRandoSeed:: ds 4
 sRandoMapSeed:: ds 4
