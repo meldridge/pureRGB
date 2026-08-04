@@ -402,6 +402,7 @@ CallHome:
 .dad
 	ld a, [wPlayerStarter]
 	ld [wNamedObjectIndex], a
+	callfar RandoRemapNamedObject ; PureRGBnote: ADDED: randomizer mode
 	call GetMonName
 	ld hl, CeladonMartCallDadText
 	rst _PrintText
@@ -540,6 +541,7 @@ CallOak:
 	call PlayMusic
 	ld a, [wPlayerStarter]
 	ld [wNamedObjectIndex], a
+	callfar RandoRemapNamedObject ; PureRGBnote: ADDED: randomizer mode
 	call GetMonName
 	ld hl, CeladonMartCallOakText
 	rst _PrintText

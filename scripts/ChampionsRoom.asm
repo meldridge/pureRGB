@@ -255,6 +255,7 @@ ChampionsRoomOakCongratulatesPlayerText:
 	text_asm
 	ld a, [wPlayerStarter]
 	ld [wNamedObjectIndex], a
+	callfar RandoRemapNamedObject ; PureRGBnote: ADDED: randomizer mode
 	call GetMonName
 	ld hl, .Text
 	rst _PrintText

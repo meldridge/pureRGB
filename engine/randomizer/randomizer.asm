@@ -119,6 +119,20 @@ RandoRemapPartySpecies::
 .done
 	jp RandoSramOff
 
+; Remaps wNamedObjectIndex, for text naming a starter. The starter variables
+; hold the original constants, so the name has to be mapped before printing.
+RandoRemapNamedObject::
+	call RandoSramOn
+	call RandoEnabled
+	jr z, .done
+	ld a, [wNamedObjectIndex]
+	ld e, a
+	call RandoMapSpecies
+	ld a, e
+	ld [wNamedObjectIndex], a
+.done
+	jp RandoSramOff
+
 ; Remaps the starter being shown and given in Oak's Lab.
 ; wPlayerStarter and wRivalStarter are left holding the original constants:
 ; StarterToPartyID identifies a rival party by comparing against them, so they
