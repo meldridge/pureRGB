@@ -180,6 +180,13 @@ RandoNewGame::
 ; Derives the seed from whatever the player typed into wStringBuffer and arms
 ; the randomizer. An empty buffer means "pick one for me".
 RandoSeedFromBuffer::
+	call RandoDeriveSeed
+	ld hl, RandoSeedText
+	rst _PrintText
+	ret
+
+; The derivation on its own, with no ui, so it can be tested off-console.
+RandoDeriveSeed::
 	call RandoSramOn
 	ld a, [wStringBuffer]
 	cp '@'
@@ -250,6 +257,41 @@ RandoStartGame::
 	call RandoCopyBytes
 	; fall through
 
+; Renders sRandoSeed into wStringBuffer as eight hex digits, most significant
+; first, so a rolled seed can be written down and replayed. Assumes sram is on.
+RandoSeedToString:
+	ld hl, sRandoSeed + 3
+	ld de, wStringBuffer
+	ld c, 4
+.byteLoop
+	ld a, [hl]
+	swap a
+	call .nybble
+	ld a, [hl]
+	call .nybble
+	dec hl
+	dec c
+	jr nz, .byteLoop
+	ld a, '@'
+	ld [de], a
+	ret
+.nybble
+	and $0F
+	cp 10
+	jr c, .digit
+	add 'A' - 10
+	jr .store
+.digit
+	add '0'
+.store
+	ld [de], a
+	inc de
+	ret
+
+RandoSeedText:
+	text_far _RandomizerSeedText
+	text_end
+
 ; Writes the magic so the state is recognised, and clears sRandoMapSeed so the
 ; permutation is rebuilt on first use. Assumes sram is on.
 RandoFinishStart:
@@ -269,6 +311,7 @@ RandoFinishStart:
 	ld [hli], a
 	dec c
 	jr nz, .clearMapSeed
+	call RandoSeedToString
 	jp RandoSramOff
 
 ; Turns the randomizer off for this save. Called when starting a normal game so

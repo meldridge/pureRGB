@@ -523,7 +523,7 @@ def new_game_test(rom, syms, check):
     magic, sseed = syms["sRandoMagic"][1], syms["sRandoSeed"][1]
 
     def seed_from(text):
-        bank, entry = syms["RandoSeedFromBuffer"]
+        bank, entry = syms["RandoDeriveSeed"]
         cpu = Cpu(rom, bank)
         buf = syms["wStringBuffer"][1]
         encoded = bytes((0x80 + (ord(c) - ord("A"))) for c in text) + b"\x50"
@@ -532,9 +532,30 @@ def new_game_test(rom, syms, check):
         cpu.ram[syms["hRandomSub"][1]] = 0x91
         cpu.ram[syms["hLoadedROMBank"][1]] = bank
         cpu.run(entry)
-        return (bytes(cpu.ram[magic:magic + 4]), bytes(cpu.ram[sseed:sseed + 4]))
+        rendered = bytes(cpu.ram[syms["wStringBuffer"][1]:
+                                 syms["wStringBuffer"][1] + 9])
+        return (bytes(cpu.ram[magic:magic + 4]), bytes(cpu.ram[sseed:sseed + 4]),
+                rendered)
 
-    m, s = seed_from("JOLTEON")
+    def decode(rendered):
+        """Charmap: '0' is $F6, 'A' is $80, '@' terminates."""
+        out = ""
+        for b in rendered:
+            if b == 0x50:
+                break
+            if 0xF6 <= b <= 0xFF:
+                out += chr(ord("0") + b - 0xF6)
+            elif 0x80 <= b <= 0x85:
+                out += chr(ord("A") + b - 0x80)
+            else:
+                out += "?"
+        return out
+
+    m, s, shown = seed_from("JOLTEON")
+    # rendered most significant byte first
+    expected = "".join(f"{b:02X}" for b in reversed(s))
+    check("seed: displayed hex matches the stored seed", decode(shown) == expected,
+          f"showed {decode(shown)!r}, seed is {expected}")
     check("seed: typed seed arms the randomizer", m == b"RAND")
     check("seed: typed seed is nonzero", any(s))
     check("seed: same text gives the same seed", seed_from("JOLTEON")[1] == s)

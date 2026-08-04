@@ -1,6 +1,12 @@
 ; PureRGBnote: ADDED: randomizer mode text.
 ; Named the mon you're actually being given, since the vanilla starter prompts
 ; state a species and a type that are both wrong once starters are shuffled.
+_RandomizerSeedText::
+	text "Randomizer seed"
+	line "@"
+	text_ram_stringbuffer
+	prompt
+
 _RandomizerInfoText::
 	text "Shuffles wild"
 	line "#MON, trainer"
