@@ -7083,6 +7083,19 @@ InitBattle::
 
 InitOpponent::
 	ld a, [wCurOpponent]
+;;;;;;;;;; PureRGBnote: ADDED: randomizer mode. Everything that names its own
+; opponent arrives here: statics placed on a map, statics started by a script,
+; and rod encounters. Grass and water go to DetermineWildOpponent instead, and
+; are already remapped in their ram copies.
+; wCurOpponent itself is left alone, as the overworld and end of battle code
+; test it.
+	cp OPP_ID_OFFSET
+	jr nc, .trainer ; a trainer class, whose party ReadTrainer handles
+	ld e, a
+	farcall ApplyRandoSpecies
+	ld a, e
+.trainer
+;;;;;;;;;;
 	ld [wCurPartySpecies], a
 	ld [wEnemyMonSpecies2], a
 	jr InitBattleCommon

@@ -23,6 +23,9 @@ DoInGameTradeDialogue:
 	ld [wInGameTradeGiveMonSpecies], a
 	ld a, [hli]
 	ld [wInGameTradeReceiveMonSpecies], a
+	push hl
+	callfar RandoRemapTrade ; PureRGBnote: ADDED: randomizer mode
+	pop hl
 	ld a, [hli]
 	push af
 	ld de, wInGameTradeMonNick

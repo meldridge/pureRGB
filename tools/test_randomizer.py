@@ -737,6 +737,13 @@ def options_row_test(check):
 
     # The seed screen writes its hint on row 3, where the entry underscores
     # start at column 10. Anything longer than 9 characters gets overwritten.
+    # Rod encounters set wCurOpponent and are remapped in InitOpponent with the
+    # statics. Remapping in RodResponse as well would map them twice.
+    effects = (ROOT / "engine/items/item_effects.asm").read_text()
+    rod = effects.split("RodResponse:")[1].split("FishingInit:")[0]
+    check("rods: mapped once, in InitOpponent", "Rando" not in rod,
+          "RodResponse randomizes as well")
+
     naming = (ROOT / "engine/menus/naming_screen.asm").read_text()
     m = re.search(r'SeedBlankString:\s*\n\s*db\s+"([^"]*)@"', naming)
     if not m:

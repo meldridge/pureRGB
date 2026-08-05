@@ -204,6 +204,41 @@ RandoEvolutionOf:
 	pop hl
 	ret
 
+; Remaps wCurPartySpecies for a gift. Anything handed over goes through the wild
+; table, so a gift is something you could have caught.
+; The Game Corner reads its prize level by species before getting here, so the
+; level stays the one the slot is meant to hand out.
+RandoRemapGift::
+	call RandoSramOn
+	call RandoEnabled
+	jr z, .done
+	ld a, [wCurPartySpecies]
+	ld e, a
+	call RandoMapSpecies
+	ld a, e
+	ld [wCurPartySpecies], a
+.done
+	jp RandoSramOff
+
+; Remaps both halves of an in-game trade. What you must hand over moves with the
+; wild table too, so it stays something this seed lets you catch.
+RandoRemapTrade::
+	call RandoSramOn
+	call RandoEnabled
+	jr z, .done
+	ld a, [wInGameTradeGiveMonSpecies]
+	ld e, a
+	call RandoMapSpecies
+	ld a, e
+	ld [wInGameTradeGiveMonSpecies], a
+	ld a, [wInGameTradeReceiveMonSpecies]
+	ld e, a
+	call RandoMapSpecies
+	ld a, e
+	ld [wInGameTradeReceiveMonSpecies], a
+.done
+	jp RandoSramOff
+
 ; Remaps wNamedObjectIndex, for text naming a starter. The starter variables
 ; hold the original constants, so the name has to be mapped before printing.
 RandoRemapNamedObject::

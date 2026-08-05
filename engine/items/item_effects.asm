@@ -2231,9 +2231,7 @@ RodResponse:
 	ld [wMoveMissed], a
 	ld a, b ; level
 	ld [wCurEnemyLevel], a
-	ld e, c ; species
-	farcall ApplyRandoSpecies ; PureRGBnote: ADDED: randomizer mode
-	ld a, e
+	ld a, c ; species, remapped later in InitOpponent along with the statics
 	ld [wCurOpponent], a
 	; store fishing item index so we can reload it next time we open the item menu outside battle
 	ld a, [wBagSavedMenuItem]

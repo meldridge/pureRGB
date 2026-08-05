@@ -1,6 +1,7 @@
 _GivePokemon::
 ; returns success in carry
 ; and whether the mon was added to the party in [wAddedToParty]
+	callfar RandoRemapGift ; PureRGBnote: ADDED: randomizer mode
 	call EnableAutoTextBoxDrawing
 	xor a
 	ld [wAddedToParty], a
