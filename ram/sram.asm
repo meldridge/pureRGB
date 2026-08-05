@@ -35,10 +35,11 @@ sBoxNames:: ds NUM_BOXES * BOX_NAME_LENGTH ; 72 bytes
 sRandoMagic:: ds 4
 sRandoSeed:: ds 4
 sRandoMapSeed:: ds 4
-; the permutation itself: sRandoShuffle[n] replaces the species at pool position
-; n. RandoPoolPos turns a species into that position, so no second table keyed by
-; species is needed.
+; the permutations: entry n replaces the species at pool position n. RandoPoolPos
+; turns a species into that position, so no table keyed by species is needed.
+; Two of them, so an opponent's team says nothing about what lives in the grass.
 sRandoShuffle:: ds RANDO_POOL_SIZE
+sRandoShuffleTrainer:: ds RANDO_POOL_SIZE
 sRandoRngState:: ds 4
 sRandoRngTemp:: ds 4
 sRandoLo:: db

@@ -57,21 +57,33 @@ ApplyRandoSpecies::
 ; e = species in, e = species out.
 ; Assumes sram is enabled and the randomizer is already known to be on.
 RandoMapSpecies:
+	ld bc, sRandoShuffle
+	jr RandoMapThrough
+
+; As above, but through the table used for opposing teams.
+RandoMapTrainerSpecies:
+	ld bc, sRandoShuffleTrainer
+	; fall through
+
+RandoMapThrough:
 	ld a, e
 	and a
 	ret z
 	cp NUM_POKEMON_INDEXES + 1
 	ret nc
+	push bc
 	push de
 	call EnsureSpeciesMap
 	pop de
+	pop bc
 	ld hl, RandoPoolPos
 	ld d, 0
 	add hl, de
 	ld a, [hl]
 	cp RANDO_POOL_SIZE
 	ret nc ; outside the pool, so it stands for itself
-	ld hl, sRandoShuffle
+	ld h, b
+	ld l, c
 	ld e, a
 	add hl, de
 	ld e, [hl]
@@ -112,14 +124,14 @@ RandoRemapBuffer:
 	ret
 
 ; Remaps wCurPartySpecies in place, for callers that are holding a data pointer
-; and can't spare registers for an argument.
+; and can't spare registers for an argument. Uses the opposing team table.
 RandoRemapPartySpecies::
 	call RandoSramOn
 	call RandoEnabled
 	jr z, .done
 	ld a, [wCurPartySpecies]
 	ld e, a
-	call RandoMapSpecies
+	call RandoMapTrainerSpecies
 	ld a, e
 	ld [wCurPartySpecies], a
 .done
@@ -366,13 +378,27 @@ GenerateSpeciesMap:
 	ld c, 4
 	call RandoCopyBytes
 
-	ld hl, RandoPool
-	ld de, sRandoShuffle
+; Both tables come from the same seed. The trainer one is built first and set
+; aside, then the wild one is built in place from where the generator had got
+; to, which is what makes the two disagree. Only the wild table gets the
+; guardrail, since it decides what is catchable.
+	call ShufflePool
+	call ShuffleWithinWindows
+	ld hl, sRandoShuffle
+	ld de, sRandoShuffleTrainer
 	ld c, RANDO_POOL_SIZE
 	call RandoCopyBytes
 
+	call ShufflePool
 	call ShuffleWithinWindows
 	jp HmGuardrail
+
+; Resets sRandoShuffle to the unshuffled pool.
+ShufflePool:
+	ld hl, RandoPool
+	ld de, sRandoShuffle
+	ld c, RANDO_POOL_SIZE
+	jp RandoCopyBytes
 
 ; Guarantees at least one species catchable before Surf is needed can learn each
 ; field move, otherwise a seed can be unwinnable.

@@ -418,14 +418,19 @@ def generate(rom, syms, seed):
 
     # There is no table keyed by species; resolve one the way the game does, by
     # turning the species into a pool position and reading the shuffle.
-    shuffle = syms["sRandoShuffle"][1]
     pbank, paddr = syms["RandoPoolPos"]
     ppos = pbank * 0x4000 + (paddr - 0x4000)
-    resolved = bytearray(191)
-    for species in range(191):
-        pos = rom[ppos + species]
-        resolved[species] = species if pos == 0xFF else cpu.ram[shuffle + pos]
-    return bytes(resolved), cpu.steps
+
+    def resolve(table):
+        out = bytearray(191)
+        for species in range(191):
+            pos = rom[ppos + species]
+            out[species] = species if pos == 0xFF else cpu.ram[table + pos]
+        return bytes(out)
+
+    return (resolve(syms["sRandoShuffle"][1]),
+            resolve(syms["sRandoShuffleTrainer"][1]),
+            cpu.steps)
 
 
 def wild_data_test(rom, syms, seed, species_map, check):
@@ -476,7 +481,7 @@ def wild_data_test(rom, syms, seed, species_map, check):
           bytes(cpu2.ram[grass_mons:grass_mons + 20]) == before)
 
 
-def apply_species_test(rom, syms, seed, species_map, pool, check):
+def apply_species_test(rom, syms, seed, species_map, trainer_map, pool, check):
     """ApplyRandoSpecies is the single-species entry point the rod hook uses."""
     bank, entry = syms["ApplyRandoSpecies"]
 
@@ -517,8 +522,9 @@ def apply_species_test(rom, syms, seed, species_map, pool, check):
         cpu.run(pentry)
         return cpu.ram[cur]
 
+    # the party hook goes through the opposing team table, not the wild one
     check("party: maps wCurPartySpecies",
-          all(call_party(s, True) == species_map[s] for s in sample))
+          all(call_party(s, True) == trainer_map[s] for s in sample))
     check("party: identity when randomizer off",
           all(call_party(s, False) == s for s in sample))
 
@@ -663,10 +669,11 @@ def main():
     print(f"rom: {rom_path.name}   pool: {len(pool)} species\n")
 
     seeds = [0x00000001, 0x12345678, 0xDEADBEEF, 0x0000FFFF, 0xA5A5A5A5]
-    maps = {}
+    maps, trainer_maps = {}, {}
     for seed in seeds:
-        m, steps = generate(rom, syms, seed)
+        m, mt, steps = generate(rom, syms, seed)
         maps[seed] = m
+        trainer_maps[seed] = mt
         print(f"seed ${seed:08X}  ({steps:,} instructions)")
         images = [m[s] for s in pool]
         check("bijection over pool", sorted(images) == sorted(pool),
@@ -682,6 +689,14 @@ def main():
               all(i not in poolset and m[i] == i for i in legendaries),
               ", ".join(n for n, i in legendary_names.items()
                         if i in poolset or m[i] != i))
+        # the trainer table must be just as valid, and must not echo the wild one
+        check("trainer table is its own bijection",
+              sorted(mt[s] for s in pool) == sorted(pool))
+        check("trainer table respects the window",
+              all(in_window(s, mt[s]) for s in pool))
+        check("trainer table differs from the wild one",
+              sum(1 for s in pool if mt[s] != m[s]) > len(pool) // 2,
+              f"only {sum(1 for s in pool if mt[s] != m[s])} of {len(pool)} differ")
         for bit, move in enumerate(("CUT", "SURF", "STRENGTH")):
             reachable = [hm_learners[m[pool[p]]] & (1 << bit) for p in anchors]
             check(f"a catchable mon can learn {move}", any(reachable))
@@ -691,7 +706,7 @@ def main():
     sweep_fail = []
     sweep = [(i * 0x9E3779B1) & 0xFFFFFFFF or 1 for i in range(1, 26)]
     for seed in sweep:
-        m, _ = generate(rom, syms, seed)
+        m, mt, _ = generate(rom, syms, seed)
         images = [m[s] for s in pool]
         if sorted(images) != sorted(pool):
             sweep_fail.append((seed, "not a bijection"))
@@ -703,7 +718,7 @@ def main():
     check(f"sweep of {len(sweep)} seeds holds every invariant", not sweep_fail,
           "; ".join(f"${s:08X} {w}" for s, w in sweep_fail[:4]))
 
-    m1, _ = generate(rom, syms, 0x12345678)
+    m1, _, _ = generate(rom, syms, 0x12345678)
     check("deterministic (same seed twice)", m1 == maps[0x12345678])
     distinct = len({maps[s] for s in seeds})
     check("different seeds give different maps", distinct == len(seeds),
@@ -713,7 +728,8 @@ def main():
     wild_data_test(rom, syms, 0x12345678, maps[0x12345678], check)
 
     print("\nsingle species lookup (rod hook)")
-    apply_species_test(rom, syms, 0x12345678, maps[0x12345678], pool, check)
+    apply_species_test(rom, syms, 0x12345678, maps[0x12345678],
+                       trainer_maps[0x12345678], pool, check)
 
     print("\nnew game gate")
     new_game_test(rom, syms, check)
