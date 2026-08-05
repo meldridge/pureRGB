@@ -428,9 +428,11 @@ def generate(rom, syms, seed):
             out[species] = species if pos == 0xFF else cpu.ram[table + pos]
         return bytes(out)
 
+    starters = bytes(cpu.ram[syms["sRandoStarters"][1]:
+                             syms["sRandoStarters"][1] + 3])
     return (resolve(syms["sRandoShuffle"][1]),
             resolve(syms["sRandoShuffleTrainer"][1]),
-            cpu.steps)
+            starters, cpu.steps)
 
 
 def wild_data_test(rom, syms, seed, species_map, check):
@@ -595,6 +597,114 @@ def new_game_test(rom, syms, check):
           not any(cpu.ram[sseed:sseed + 4]))
 
 
+def parse_starter_sets():
+    """The emitted starter sets, as triples of species constant names."""
+    text = (ROOT / "data/randomizer/species_pool.asm").read_text()
+    sets = []
+    for line in text.split("RandoStarterTriples::")[1].splitlines():
+        s = line.split(";")[0].strip()
+        if s.startswith("assert_table_length"):
+            break
+        m = re.match(r"^db\s+(\w+)\s*,\s*(\w+)\s*,\s*(\w+)$", s)
+        if m:
+            sets.append((m.group(1), m.group(2), m.group(3)))
+    return sets
+
+
+def starter_sets_test(rom, syms, seed, starters, check):
+    """Re-derive the rules from the source data, not from the generator."""
+    sys.path.insert(0, str(ROOT / "tools"))
+    from generate_species_pool import (parse_base_stat_files, parse_species_types,
+                                       parse_type_chart, make_beats, parse_evolutions,
+                                       parse_species_constants, flatten,
+                                       STARTER_SET_PIECES, EEVEELUTIONS)
+    sets = parse_starter_sets()
+    types = parse_species_types(parse_base_stat_files())
+    beats = make_beats(types, parse_type_chart())
+    evolved = {flatten(v) for v in parse_evolutions().values() if v}
+    pieces = {tuple(m) for _, m in STARTER_SET_PIECES}
+    generated = [s for s in sets if s not in pieces]
+    legendary = {"MOLTRES", "ARTICUNO", "ZAPDOS", "MEWTWO", "MEW"}
+
+    check("starters: 151 sets emitted", len(sets) == 151, f"got {len(sets)}")
+    bad = [s for s in generated
+           if not (beats(s[0], s[1]) and beats(s[1], s[2]) and beats(s[2], s[0]))]
+    check("starters: every generated set is a real cycle", not bad,
+          "; ".join(" > ".join(s) for s in bad[:3]))
+    pairs = [frozenset((s[i], s[j])) for s in sets
+             for i in range(3) for j in range(i + 1, 3)]
+    check("starters: no pair of species repeats across sets",
+          len(pairs) == len(set(pairs)))
+    check("starters: no evolved species outside the Eeveelutions",
+          all(flatten(x) not in evolved or x in EEVEELUTIONS
+              for s in generated for x in s))
+    check("starters: Ditto never appears", all("DITTO" not in s for s in sets))
+    check("starters: legendaries only in their own set",
+          all(not (legendary & set(s)) for s in generated))
+
+    # and the set the rom actually chose is one of them
+    name_of = parse_species_constants()
+    index = {v: k for k, v in name_of.items()}
+    chosen = tuple(name_of.get(b, f"?{b}") for b in starters)
+    check("starters: the chosen set is one of the emitted sets", chosen in set(sets),
+          " > ".join(chosen))
+    check("starters: same seed picks the same set",
+          generate(rom, syms, seed)[2] == starters)
+
+
+def rival_chain_test(rom, syms, seed, starters, check):
+    """The rival's starter must follow its own evolution line across his battles."""
+    sys.path.insert(0, str(ROOT / "tools"))
+    from generate_species_pool import parse_species_constants
+    name_of = parse_species_constants()
+    index = {v: k for k, v in name_of.items()}
+    bank, entry = syms["RandoRemapPartySpecies"][0], syms["RandoRemapPartySpecies"][1]
+
+    def call(species, opponent, rival_starter):
+        cpu = Cpu(rom, bank)
+        for i, ch in enumerate(b"RAND"):
+            cpu.ram[syms["sRandoMagic"][1] + i] = ch
+        for i in range(4):
+            cpu.ram[syms["sRandoSeed"][1] + i] = (seed >> (8 * i)) & 0xFF
+        cpu.ram[syms["hLoadedROMBank"][1]] = bank
+        cpu.ram[syms["wCurOpponent"][1]] = opponent
+        cpu.ram[syms["wRivalStarter"][1]] = rival_starter
+        cpu.ram[syms["wCurPartySpecies"][1]] = species
+        cpu.run(entry)
+        return cpu.ram[syms["wCurPartySpecies"][1]]
+
+    # trainer class ids from the constants, offset into opponent ids
+    tc = (ROOT / "constants/trainer_constants.asm").read_text()
+    off = int(re.search(r"DEF OPP_ID_OFFSET\s+EQU\s+(\d+)", tc).group(1))
+    rival2 = off + int(re.search(r"trainer_const RIVAL2\s*;\s*\$([0-9A-Fa-f]+)", tc).group(1), 16)
+
+    his = starters[0]  # the calls below say he took STARTER1
+    stage1 = call(index["CHARMELEON"], rival2, index["CHARMANDER"])
+    stage2 = call(index["CHARIZARD"], rival2, index["CHARMANDER"])
+    base = call(index["CHARMANDER"], rival2, index["CHARMANDER"])
+
+    evo = parse_starter_evolutions(rom, syms)
+    check("rival: base stage is his starter", base == his,
+          f"{name_of.get(base)} vs {name_of.get(his)}")
+    check("rival: second stage is its evolution", stage1 == evo(his),
+          f"{name_of.get(stage1)} vs {name_of.get(evo(his))}")
+    check("rival: third stage is the one after", stage2 == evo(evo(his)),
+          f"{name_of.get(stage2)} vs {name_of.get(evo(evo(his)))}")
+    # a non-rival opponent must not get the substitution
+    ordinary = call(index["CHARMELEON"], 0, index["CHARMANDER"])
+    check("rival: ordinary trainers are unaffected", ordinary != stage1 or evo(his) == 0)
+
+
+def parse_starter_evolutions(rom, syms):
+    """RandoEvolvesTo straight out of the rom."""
+    bank, addr = syms["RandoEvolvesTo"]
+    base = bank * 0x4000 + (addr - 0x4000)
+    def evo(species):
+        nxt = rom[base + species]
+        return nxt if nxt else species
+    return evo
+
+
 def options_row_test(check):
     """The RANDOM row's "bit set" x must sit on ON, not OFF.
 
@@ -669,11 +779,12 @@ def main():
     print(f"rom: {rom_path.name}   pool: {len(pool)} species\n")
 
     seeds = [0x00000001, 0x12345678, 0xDEADBEEF, 0x0000FFFF, 0xA5A5A5A5]
-    maps, trainer_maps = {}, {}
+    maps, trainer_maps, starter_sets = {}, {}, {}
     for seed in seeds:
-        m, mt, steps = generate(rom, syms, seed)
+        m, mt, starters, steps = generate(rom, syms, seed)
         maps[seed] = m
         trainer_maps[seed] = mt
+        starter_sets[seed] = starters
         print(f"seed ${seed:08X}  ({steps:,} instructions)")
         images = [m[s] for s in pool]
         check("bijection over pool", sorted(images) == sorted(pool),
@@ -706,7 +817,7 @@ def main():
     sweep_fail = []
     sweep = [(i * 0x9E3779B1) & 0xFFFFFFFF or 1 for i in range(1, 26)]
     for seed in sweep:
-        m, mt, _ = generate(rom, syms, seed)
+        m, mt, _, _ = generate(rom, syms, seed)
         images = [m[s] for s in pool]
         if sorted(images) != sorted(pool):
             sweep_fail.append((seed, "not a bijection"))
@@ -718,7 +829,7 @@ def main():
     check(f"sweep of {len(sweep)} seeds holds every invariant", not sweep_fail,
           "; ".join(f"${s:08X} {w}" for s, w in sweep_fail[:4]))
 
-    m1, _, _ = generate(rom, syms, 0x12345678)
+    m1, _, _, _ = generate(rom, syms, 0x12345678)
     check("deterministic (same seed twice)", m1 == maps[0x12345678])
     distinct = len({maps[s] for s in seeds})
     check("different seeds give different maps", distinct == len(seeds),
@@ -733,6 +844,12 @@ def main():
 
     print("\nnew game gate")
     new_game_test(rom, syms, check)
+
+    print("\nstarter sets")
+    starter_sets_test(rom, syms, 0x12345678, starter_sets[0x12345678], check)
+
+    print("\nrival starter continuity")
+    rival_chain_test(rom, syms, 0x12345678, starter_sets[0x12345678], check)
 
     print("\noptions row wiring")
     options_row_test(check)

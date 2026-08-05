@@ -129,6 +129,8 @@ RandoRemapPartySpecies::
 	call RandoSramOn
 	call RandoEnabled
 	jr z, .done
+	call RivalStarterSlot
+	jr c, .done ; his starter, already substituted
 	ld a, [wCurPartySpecies]
 	ld e, a
 	call RandoMapTrainerSpecies
@@ -137,6 +139,71 @@ RandoRemapPartySpecies::
 .done
 	jp RandoSramOff
 
+; Carries the rival's starter across his battles.
+;
+; His parties name the species by stage -- Rival1Data holds CHARMANDER,
+; Rival2Data CHARMELEON and CHARIZARD -- and those are separate constants that
+; would otherwise map independently, so his signature mon would change species
+; between fights. The stage cannot come from the trainer class either, since
+; SS Anne and Silph Co are both OPP_RIVAL2 at different stages.
+;
+; So walk the chain the vanilla starter would have taken, and if the species
+; being mapped is any of those, substitute the matching stage of the chain his
+; actual starter takes. Carry set if it was substituted.
+RivalStarterSlot:
+	ld a, [wCurOpponent]
+	cp OPP_RIVAL1
+	jr z, .isRival
+	cp OPP_RIVAL2
+	jr z, .isRival
+	cp OPP_RIVAL3
+	jr nz, .no
+.isRival
+	ld a, [wRivalStarter] ; the positional constant, not the species
+	ld d, a
+	call RandoStarterSpecies
+	ld e, a ; his actual starter
+	ld a, [wCurPartySpecies]
+	ld c, a
+	ld b, 3 ; base, first evolution, second
+.walk
+	ld a, d
+	cp c
+	jr z, .matched
+	ld a, d
+	call RandoEvolutionOf
+	ld d, a
+	ld a, e
+	call RandoEvolutionOf
+	ld e, a
+	dec b
+	jr nz, .walk
+.no
+	and a
+	ret
+.matched
+	ld a, e
+	ld [wCurPartySpecies], a
+	scf
+	ret
+
+; a = species, returns a = what it evolves into, or itself if it does not.
+RandoEvolutionOf:
+	push hl
+	push de
+	ld hl, RandoEvolvesTo
+	ld d, 0
+	ld e, a
+	add hl, de
+	ld a, [hl]
+	and a
+	jr nz, .evolves
+	ld a, e ; nothing to evolve into, so stay put
+.evolves
+	pop de
+	pop hl
+	ret
+
 ; Remaps wNamedObjectIndex, for text naming a starter. The starter variables
 ; hold the original constants, so the name has to be mapped before printing.
 RandoRemapNamedObject::
@@ -144,9 +211,7 @@ RandoRemapNamedObject::
 	call RandoEnabled
 	jr z, .done
 	ld a, [wNamedObjectIndex]
-	ld e, a
-	call RandoMapSpecies
-	ld a, e
+	call RandoStarterSpecies
 	ld [wNamedObjectIndex], a
 .done
 	jp RandoSramOff
@@ -155,18 +220,22 @@ RandoRemapNamedObject::
 ; wPlayerStarter and wRivalStarter are left holding the original constants:
 ; StarterToPartyID identifies a rival party by comparing against them, so they
 ; have to stay positional or every rival battle picks the wrong team.
-RandoRemapStarters::
+RandoRemapCurStarter::
 	call RandoSramOn
 	call RandoEnabled
 	jr z, .done
 	ld a, [wCurPartySpecies]
-	ld e, a
-	call RandoMapSpecies
-	ld a, e
+	call RandoStarterSpecies
 	ld [wCurPartySpecies], a
-	ld [wPokedexNum], a
 .done
 	jp RandoSramOff
+
+; As above, and mirrors it into wPokedexNum for the ball's dex page.
+RandoRemapStarters::
+	call RandoRemapCurStarter
+	ld a, [wCurPartySpecies]
+	ld [wPokedexNum], a
+	ret
 
 ; Remaps the wild data ram copies in place, after LoadWildDataCommon fills them.
 ; Slot order is kept so the WildPalettePointers flags stay aligned, and a rate of
@@ -391,7 +460,48 @@ GenerateSpeciesMap:
 
 	call ShufflePool
 	call ShuffleWithinWindows
-	jp HmGuardrail
+	call HmGuardrail
+	; fall through
+
+; Copies one entry of RandoStarterTriples into sRandoStarters.
+PickStarterSet:
+	ld c, RANDO_NUM_STARTER_SETS
+	call RandoRandRange
+	ld hl, RandoStarterTriples
+	ld d, 0
+	ld e, a
+	add hl, de ; three bytes each, so add the index three times
+	add hl, de
+	add hl, de
+	ld de, sRandoStarters
+	ld c, 3
+	jp RandoCopyBytes
+
+; a = STARTER1, STARTER2 or STARTER3; returns a = what it is this game.
+; Anything else is returned unchanged.
+RandoStarterSpecies::
+	push bc
+	push de
+	push hl
+	push af
+	call EnsureSpeciesMap ; the set is chosen while generating, so make sure it has
+	pop af
+	ld hl, sRandoStarters
+	cp STARTER1
+	jr z, .found
+	inc hl
+	cp STARTER2
+	jr z, .found
+	inc hl
+	cp STARTER3
+	jr nz, .notAStarter
+.found
+	ld a, [hl]
+.notAStarter
+	pop hl
+	pop de
+	pop bc
+	ret
 
 ; Resets sRandoShuffle to the unshuffled pool.
 ShufflePool:

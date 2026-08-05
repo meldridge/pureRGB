@@ -40,6 +40,9 @@ sRandoMapSeed:: ds 4
 ; Two of them, so an opponent's team says nothing about what lives in the grass.
 sRandoShuffle:: ds RANDO_POOL_SIZE
 sRandoShuffleTrainer:: ds RANDO_POOL_SIZE
+; the three starters on Oak's table, in STARTER1/2/3 order. Chosen from a fixed
+; list rather than mapped, so they are not in either table above.
+sRandoStarters:: ds 3
 sRandoRngState:: ds 4
 sRandoRngTemp:: ds 4
 sRandoLo:: db

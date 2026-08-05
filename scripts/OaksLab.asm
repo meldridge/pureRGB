@@ -314,7 +314,7 @@ OaksLabRivalChoosesStarterScript:
 	ld a, [wRivalStarterTemp]
 	ld [wRivalStarter], a ; which of the three he took, used to pick his party later
 	ld [wCurPartySpecies], a
-	callfar RandoRemapPartySpecies ; PureRGBnote: ADDED: name him the mon he'll actually field
+	callfar RandoRemapCurStarter ; PureRGBnote: ADDED: name him the mon he'll actually field
 	ld a, [wCurPartySpecies]
 	ld [wNamedObjectIndex], a
 	call GetMonName
