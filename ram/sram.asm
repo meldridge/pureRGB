@@ -35,7 +35,9 @@ sBoxNames:: ds NUM_BOXES * BOX_NAME_LENGTH ; 72 bytes
 sRandoMagic:: ds 4
 sRandoSeed:: ds 4
 sRandoMapSeed:: ds 4
-sRandoMap:: ds NUM_POKEMON_INDEXES + 1
+; the permutation itself: sRandoShuffle[n] replaces the species at pool position
+; n. RandoPoolPos turns a species into that position, so no second table keyed by
+; species is needed.
 sRandoShuffle:: ds RANDO_POOL_SIZE
 sRandoRngState:: ds 4
 sRandoRngTemp:: ds 4

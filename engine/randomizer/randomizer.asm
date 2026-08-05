@@ -65,8 +65,14 @@ RandoMapSpecies:
 	push de
 	call EnsureSpeciesMap
 	pop de
-	ld hl, sRandoMap
+	ld hl, RandoPoolPos
 	ld d, 0
+	add hl, de
+	ld a, [hl]
+	cp RANDO_POOL_SIZE
+	ret nc ; outside the pool, so it stands for itself
+	ld hl, sRandoShuffle
+	ld e, a
 	add hl, de
 	ld e, [hl]
 	ret
@@ -360,43 +366,13 @@ GenerateSpeciesMap:
 	ld c, 4
 	call RandoCopyBytes
 
-	; species outside the pool map to themselves
-	ld hl, sRandoMap
-	xor a
-.identity
-	ld [hli], a
-	inc a
-	cp NUM_POKEMON_INDEXES + 1
-	jr nz, .identity
-
 	ld hl, RandoPool
 	ld de, sRandoShuffle
 	ld c, RANDO_POOL_SIZE
 	call RandoCopyBytes
 
 	call ShuffleWithinWindows
-	call HmGuardrail
-
-	; pool entry i is replaced by whatever landed in shuffle slot i
-	ld hl, RandoPool
-	ld de, sRandoShuffle
-	ld c, RANDO_POOL_SIZE
-.assign
-	push bc
-	ld a, [hli]
-	push hl
-	ld hl, sRandoMap
-	ld b, 0
-	ld c, a
-	add hl, bc
-	ld a, [de]
-	ld [hl], a
-	pop hl
-	pop bc
-	inc de
-	dec c
-	jr nz, .assign
-	ret
+	jp HmGuardrail
 
 ; Guarantees at least one species catchable before Surf is needed can learn each
 ; field move, otherwise a seed can be unwinnable.

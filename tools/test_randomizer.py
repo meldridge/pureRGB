@@ -415,8 +415,17 @@ def generate(rom, syms, seed):
     for i in range(4):
         cpu.ram[sseed + i] = (seed >> (8 * i)) & 0xFF
     cpu.run(syms["EnsureSpeciesMap"][1])
-    _, mapaddr = syms["sRandoMap"]
-    return bytes(cpu.ram[mapaddr:mapaddr + 191]), cpu.steps
+
+    # There is no table keyed by species; resolve one the way the game does, by
+    # turning the species into a pool position and reading the shuffle.
+    shuffle = syms["sRandoShuffle"][1]
+    pbank, paddr = syms["RandoPoolPos"]
+    ppos = pbank * 0x4000 + (paddr - 0x4000)
+    resolved = bytearray(191)
+    for species in range(191):
+        pos = rom[ppos + species]
+        resolved[species] = species if pos == 0xFF else cpu.ram[shuffle + pos]
+    return bytes(resolved), cpu.steps
 
 
 def wild_data_test(rom, syms, seed, species_map, check):
