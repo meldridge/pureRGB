@@ -1,7 +1,7 @@
 IndigoPlateauLobby_Script:
-	call SetLastBlackoutMap ; PureRGBnote: ADDED: set blackout map on entering pokemon center
+	lb de, 7, 7
+	call SetSpecificBlackoutMap ; PureRGBnote: ADDED: set blackout map on entering pokemon center
 	call Serial_TryEstablishingExternallyClockedConnection
-	call EnableAutoTextBoxDrawing
 	call CheckArenaAssistantWalking
 	ld hl, wCurrentMapScriptFlags
 	bit BIT_CUR_MAP_LOADED_2, [hl]
