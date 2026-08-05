@@ -3,3 +3,4 @@
 ; Separate from the data so wram.asm can size its buffers.
 
 DEF RANDO_POOL_SIZE EQU 146
+DEF RANDO_NUM_STARTER_SETS EQU 151

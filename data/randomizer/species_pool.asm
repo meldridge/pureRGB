@@ -939,3 +939,357 @@ RandoAnchors::
 	db 142
 	db 144
 	assert_table_length RANDO_NUM_ANCHORS
+
+; what each species evolves into, 0 for none, by internal species index
+RandoEvolvesTo::
+	table_width 1
+	db 0
+	db 0
+	db 0
+	db NIDORINO
+	db CLEFABLE
+	db FEAROW
+	db ELECTRODE
+	db 0
+	db 0
+	db VENUSAUR
+	db 0
+	db 0
+	db EXEGGUTOR
+	db MUK
+	db 0
+	db NIDORINA
+	db 0
+	db MAROWAK
+	db RHYDON
+	db 0
+	db 0
+	db 0
+	db 0
+	db CLOYSTER
+	db TENTACRUEL
+	db HAUNTER
+	db 0
+	db STARMIE
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db ARCANINE
+	db 0
+	db 0
+	db PIDGEOTTO
+	db SLOWBRO
+	db ALAKAZAM
+	db GOLEM
+	db 0
+	db MACHAMP
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db GOLDUCK
+	db HYPNO
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db WEEZING
+	db 0
+	db PRIMEAPE
+	db DEWGONG
+	db DUGTRIO
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db VENOMOTH
+	db 0
+	db 0
+	db 0
+	db 0
+	db DODRIO
+	db POLIWHIRL
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db PERSIAN
+	db KINGLER
+	db 0
+	db 0
+	db 0
+	db NINETALES
+	db 0
+	db RAICHU
+	db 0
+	db 0
+	db 0
+	db DRAGONAIR
+	db DRAGONITE
+	db KABUTOPS
+	db 0
+	db SEADRA
+	db 0
+	db 0
+	db 0
+	db SANDSLASH
+	db 0
+	db OMASTAR
+	db 0
+	db WIGGLYTUFF
+	db 0
+	db FLAREON
+	db 0
+	db 0
+	db 0
+	db MACHOKE
+	db GOLBAT
+	db ARBOK
+	db PARASECT
+	db POLIWRATH
+	db 0
+	db KAKUNA
+	db BEEDRILL
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db METAPOD
+	db BUTTERFREE
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db GYARADOS
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db GENGAR
+	db KADABRA
+	db 0
+	db PIDGEOT
+	db 0
+	db 0
+	db IVYSAUR
+	db 0
+	db 0
+	db 0
+	db SEAKING
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db RAPIDASH
+	db 0
+	db RATICATE
+	db 0
+	db NIDOKING
+	db NIDOQUEEN
+	db GRAVELER
+	db 0
+	db 0
+	db 0
+	db MAGNETON
+	db 0
+	db 0
+	db CHARMELEON
+	db WARTORTLE
+	db CHARIZARD
+	db BLASTOISE
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db GLOOM
+	db VILEPLUME
+	db 0
+	db WEEPINBELL
+	db VICTREEBEL
+	db 0
+	assert_table_length 191
+
+; Starter sets. The player takes one and the rival the next along, so the
+; order carries the matchup. All but the first few are type cycles: each
+; beats the next and loses to the one before.
+RandoStarterTriples::
+	table_width 3
+	db FLAREON, VAPOREON, JOLTEON ; Eeveelutions
+	db MOLTRES, ARTICUNO, ZAPDOS ; Legendary birds
+	db CHARMANDER, SQUIRTLE, BULBASAUR ; Vanilla
+	db EKANS, KOFFING, MEOWTH ; Team Rocket
+	db OMANYTE, KABUTO, AERODACTYL ; Fossils
+	db LAPRAS, SNORLAX, AERODACTYL ; Titans
+	db MAGIKARP, CATERPIE, WEEDLE ; Hard mode
+	db ABRA, BELLSPROUT, PARAS ; cycle
+	db CUBONE, ELECTABUZZ, GOLDEEN ; cycle
+	db DIGLETT, GASTLY, EXEGGCUTE ; cycle
+	db DODUO, GEODUDE, JYNX ; cycle
+	db DROWZEE, GRIMER, PINSIR ; cycle
+	db FARFETCHD, HITMONCHAN, ONIX ; cycle
+	db GROWLITHE, ODDISH, HORSEA ; cycle
+	db HITMONLEE, PONYTA, SCYTHER ; cycle
+	db KRABBY, MAGMAR, TANGELA ; cycle
+	db MACHOP, RHYHORN, PIDGEY ; cycle
+	db MAGNEMITE, POLIWAG, SANDSHREW ; cycle
+	db SLOWPOKE, TENTACOOL, VOLTORB ; cycle
+	db ABRA, ZUBAT, VENONAT ; cycle
+	db BELLSPROUT, PSYDUCK, VULPIX ; cycle
+	db CUBONE, PIKACHU, SEEL ; cycle
+	db GEODUDE, SPEAROW, MANKEY ; cycle
+	db BULBASAUR, SHELLDER, DODUO ; cycle
+	db CATERPIE, DROWZEE, NIDORAN_F ; cycle
+	db CHARMANDER, EXEGGCUTE, STARYU ; cycle
+	db DIGLETT, NIDORAN_M, PARAS ; cycle
+	db GASTLY, MR_MIME, JYNX ; cycle
+	db EKANS, PINSIR, ONIX ; cycle
+	db ELECTABUZZ, HORSEA, RHYHORN ; cycle
+	db FARFETCHD, HITMONLEE, LAPRAS ; cycle
+	db FLAREON, ODDISH, GOLDEEN ; cycle
+	db GRIMER, SCYTHER, SLOWPOKE ; cycle
+	db GROWLITHE, TANGELA, MAGIKARP ; cycle
+	db HITMONCHAN, OMANYTE, PIDGEY ; cycle
+	db JOLTEON, KRABBY, SANDSHREW ; cycle
+	db KABUTO, VENONAT, TENTACOOL ; cycle
+	db AERODACTYL, VOLTORB, POLIWAG ; cycle
+	db BELLSPROUT, SEEL, MAGMAR ; cycle
+	db BULBASAUR, PSYDUCK, PONYTA ; cycle
+	db CUBONE, MAGNEMITE, SHELLDER ; cycle
+	db DIGLETT, PIKACHU, SQUIRTLE ; cycle
+	db DROWZEE, ZUBAT, WEEDLE ; cycle
+	db EXEGGCUTE, VAPOREON, VULPIX ; cycle
+	db LAPRAS, SPEAROW, MACHOP ; cycle
+	db ABRA, KOFFING, CATERPIE ; cycle
+	db DODUO, ELECTABUZZ, STARYU ; cycle
+	db FARFETCHD, MANKEY, OMANYTE ; cycle
+	db GEODUDE, NIDORAN_F, PARAS ; cycle
+	db JYNX, NIDORAN_M, PINSIR ; cycle
+	db CHARMANDER, ODDISH, KRABBY ; cycle
+	db EKANS, SCYTHER, VENONAT ; cycle
+	db FLAREON, TANGELA, HORSEA ; cycle
+	db GASTLY, SLOWPOKE, ONIX ; cycle
+	db GOLDEEN, KABUTO, VOLTORB ; cycle
+	db GROWLITHE, WEEDLE, TENTACOOL ; cycle
+	db HITMONCHAN, RHYHORN, SPEAROW ; cycle
+	db MAGIKARP, SANDSHREW, PIKACHU ; cycle
+	db BELLSPROUT, POLIWAG, PONYTA ; cycle
+	db BULBASAUR, SEEL, VULPIX ; cycle
+	db CUBONE, JOLTEON, PSYDUCK ; cycle
+	db DIGLETT, MAGNEMITE, STARYU ; cycle
+	db EXEGGCUTE, SHELLDER, MAGMAR ; cycle
+	db GEODUDE, PIDGEY, HITMONLEE ; cycle
+	db LAPRAS, ZUBAT, MANKEY ; cycle
+	db ABRA, NIDORAN_F, PINSIR ; cycle
+	db AERODACTYL, MACHOP, GOLDEEN ; cycle
+	db CATERPIE, JYNX, GRIMER ; cycle
+	db CHARMANDER, PARAS, VAPOREON ; cycle
+	db DODUO, JOLTEON, SQUIRTLE ; cycle
+	db DROWZEE, KOFFING, SCYTHER ; cycle
+	db NIDORAN_M, TANGELA, ONIX ; cycle
+	db ELECTABUZZ, OMANYTE, SANDSHREW ; cycle
+	db FARFETCHD, ODDISH, RHYHORN ; cycle
+	db FLAREON, VENONAT, SLOWPOKE ; cycle
+	db BELLSPROUT, HORSEA, KABUTO ; cycle
+	db BULBASAUR, KRABBY, GROWLITHE ; cycle
+	db CATERPIE, TENTACOOL, MAGMAR ; cycle
+	db CUBONE, VOLTORB, MAGIKARP ; cycle
+	db DODUO, MAGNEMITE, PSYDUCK ; cycle
+	db EKANS, EXEGGCUTE, WEEDLE ; cycle
+	db GEODUDE, PIKACHU, POLIWAG ; cycle
+	db HITMONCHAN, PONYTA, JYNX ; cycle
+	db HITMONLEE, OMANYTE, SPEAROW ; cycle
+	db MACHOP, ONIX, ZUBAT ; cycle
+	db ODDISH, SHELLDER, VULPIX ; cycle
+	db ABRA, GASTLY, SCYTHER ; cycle
+	db AERODACTYL, MANKEY, RHYHORN ; cycle
+	db CHARMANDER, TANGELA, SEEL ; cycle
+	db DIGLETT, ELECTABUZZ, VAPOREON ; cycle
+	db FLAREON, PARAS, SQUIRTLE ; cycle
+	db KOFFING, PINSIR, SANDSHREW ; cycle
+	db BELLSPROUT, LAPRAS, PIDGEY ; cycle
+	db BULBASAUR, STARYU, KABUTO ; cycle
+	db CATERPIE, SLOWPOKE, NIDORAN_M ; cycle
+	db EXEGGCUTE, VENONAT, GRIMER ; cycle
+	db NIDORAN_F, SCYTHER, WEEDLE ; cycle
+	db DIGLETT, JOLTEON, GOLDEEN ; cycle
+	db DODUO, PIKACHU, HORSEA ; cycle
+	db DROWZEE, EKANS, PARAS ; cycle
+	db FARFETCHD, MACHOP, GEODUDE ; cycle
+	db HITMONLEE, RHYHORN, ZUBAT ; cycle
+	db JYNX, TENTACOOL, VULPIX ; cycle
+	db KRABBY, ONIX, MAGNEMITE ; cycle
+	db MAGIKARP, MAGMAR, ODDISH ; cycle
+	db PONYTA, TANGELA, SHELLDER ; cycle
+	db PSYDUCK, SANDSHREW, VOLTORB ; cycle
+	db BELLSPROUT, SQUIRTLE, GROWLITHE ; cycle
+	db MANKEY, ONIX, PIDGEY ; cycle
+	db AERODACTYL, BULBASAUR, VAPOREON ; cycle
+	db CHARMANDER, PINSIR, GOLDEEN ; cycle
+	db CUBONE, GASTLY, PARAS ; cycle
+	db DIGLETT, VOLTORB, SEEL ; cycle
+	db DODUO, HITMONCHAN, LAPRAS ; cycle
+	db ELECTABUZZ, SPEAROW, EXEGGCUTE ; cycle
+	db GEODUDE, JOLTEON, STARYU ; cycle
+	db KABUTO, ODDISH, POLIWAG ; cycle
+	db KOFFING, TANGELA, SLOWPOKE ; cycle
+	db FARFETCHD, VENONAT, JYNX ; cycle
+	db FLAREON, PINSIR, OMANYTE ; cycle
+	db GRIMER, PARAS, WEEDLE ; cycle
+	db KRABBY, RHYHORN, PIKACHU ; cycle
+	db AERODACTYL, SCYTHER, TENTACOOL ; cycle
+	db BULBASAUR, HORSEA, MAGMAR ; cycle
+	db CUBONE, NIDORAN_F, EXEGGCUTE ; cycle
+	db GEODUDE, MAGNEMITE, MAGIKARP ; cycle
+	db ODDISH, SEEL, PONYTA ; cycle
+	db POLIWAG, VULPIX, TANGELA ; cycle
+	db BELLSPROUT, OMANYTE, ZUBAT ; cycle
+	db CHARMANDER, WEEDLE, SLOWPOKE ; cycle
+	db DODUO, HITMONLEE, GOLDEEN ; cycle
+	db ELECTABUZZ, PSYDUCK, ONIX ; cycle
+	db EXEGGCUTE, SANDSHREW, NIDORAN_M ; cycle
+	db GROWLITHE, PARAS, SHELLDER ; cycle
+	db MAGNEMITE, SQUIRTLE, RHYHORN ; cycle
+	db BELLSPROUT, STARYU, FLAREON ; cycle
+	db DODUO, VOLTORB, VAPOREON ; cycle
+	db GEODUDE, ZUBAT, HITMONCHAN ; cycle
+	db GROWLITHE, PINSIR, LAPRAS ; cycle
+	db JYNX, MACHOP, OMANYTE ; cycle
+	db BULBASAUR, CATERPIE, VENONAT ; cycle
+	db CUBONE, EKANS, TANGELA ; cycle
+	db EXEGGCUTE, MANKEY, PONYTA ; cycle
+	db HORSEA, ONIX, JOLTEON ; cycle
+	db JYNX, PIDGEY, SCYTHER ; cycle
+	db AERODACTYL, ODDISH, PSYDUCK ; cycle
+	db DIGLETT, GRIMER, TANGELA ; cycle
+	db GASTLY, PINSIR, RHYHORN ; cycle
+	db JYNX, SPEAROW, WEEDLE ; cycle
+	db KABUTO, PARAS, KRABBY ; cycle
+	db ONIX, PIKACHU, SHELLDER ; cycle
+	assert_table_length RANDO_NUM_STARTER_SETS

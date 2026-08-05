@@ -12,9 +12,12 @@ number we keep exactly one internal index -- the one whose constant name matches
 the dex constant name -- and drop the rest. NO_MON and DEX_MISSINGNO are dropped
 outright.
 
-The surviving pool is sorted by base-stat total and split into equal-sized
-buckets. At runtime the randomizer shuffles within each bucket, which keeps
-replacements roughly power-matched so early routes stay survivable.
+The surviving pool is sorted by base-stat total, and each entry records the range
+of positions it may be exchanged with, so the runtime shuffle keeps replacements
+roughly power-matched.
+
+Starters are not shuffled. They come from a fixed list of sets, mostly generated
+here as type cycles -- A beats B beats C beats A -- plus a few hand-written ones.
 """
 
 import re
@@ -34,8 +37,36 @@ LEGENDARY_DEX = {144, 145, 146, 150, 151}
 CONSTANTS = ROOT / "constants/pokemon_constants.asm"
 DEX_ORDER = ROOT / "data/pokemon/dex_order.asm"
 BASE_STATS = ROOT / "data/pokemon/base_stats.asm"
+EVOS_MOVES = ROOT / "data/pokemon/evos_moves.asm"
+TYPE_MATCHUPS = ROOT / "data/types/type_matchups.asm"
 OUT = ROOT / "data/randomizer/species_pool.asm"
 OUT_CONSTANTS = ROOT / "constants/randomizer_constants.asm"
+
+# How many starter sets to emit, hand-written ones included.
+TOTAL_STARTER_SETS = 151
+
+# Allowed as starters despite being evolutions.
+EEVEELUTIONS = {"FLAREON", "VAPOREON", "JOLTEON"}
+
+# Transform is all it ever knows, so it cannot function as a sole starter.
+UNPLAYABLE_STARTERS = {"DITTO"}
+
+# Exempt from the cycle rule and from the legendary exclusion.
+STARTER_SET_PIECES = [
+    ("Eeveelutions", ("FLAREON", "VAPOREON", "JOLTEON")),
+    ("Legendary birds", ("MOLTRES", "ARTICUNO", "ZAPDOS")),
+    ("Vanilla", ("CHARMANDER", "SQUIRTLE", "BULBASAUR")),
+    ("Team Rocket", ("EKANS", "KOFFING", "MEOWTH")),
+    ("Fossils", ("OMANYTE", "KABUTO", "AERODACTYL")),
+    ("Titans", ("LAPRAS", "SNORLAX", "AERODACTYL")),
+    ("Hard mode", ("MAGIKARP", "CATERPIE", "WEEDLE")),
+]
+
+EFFECTIVENESS = {
+    "SUPER_EFFECTIVE": 2.0,
+    "NOT_VERY_EFFECTIVE": 0.5,
+    "NO_EFFECT": 0.0,
+}
 
 
 def parse_species_constants():
@@ -151,6 +182,128 @@ def parse_early_species(names_to_index):
             if m and m.group(1) in names_to_index:
                 found.add(names_to_index[m.group(1)])
     return found
+
+
+def flatten(name):
+    """Evos/moves labels drop the underscores that species constants carry."""
+    return name.replace("_", "")
+
+
+def parse_evolutions():
+    """Species constant name -> the species it evolves into, or None.
+
+    Only the first evolution is taken, whatever its method: a stone or trade
+    evolution is fine for the rival's starter. Records share tails --
+    RhyhornEvosMoves falls through into RhydonEvosMoves -- so read from a label
+    to the first terminator, ignoring any label lines in between.
+    """
+    evolves, current = {}, None
+    for line in EVOS_MOVES.read_text().splitlines():
+        line = line.split(";")[0].strip()
+        m = re.match(r"^(\w+)EvosMoves:", line)
+        if m:
+            current = m.group(1).upper()
+            continue
+        if current is None:
+            continue
+        if line.startswith("db EVOLVE"):
+            evolves.setdefault(current, line.split(",")[-1].strip())
+        elif line == "db 0":
+            evolves.setdefault(current, None)
+            current = None
+    return evolves
+
+
+def parse_species_types(stat_files):
+    """Species constant name -> its two type constants."""
+    types = {}
+    for path in stat_files.values():
+        text = path.read_text()
+        dex = re.search(r"db\s+(DEX_[A-Z0-9_]+)", text)
+        ty = re.search(r"db\s+([A-Z_]+)\s*,\s*([A-Z_]+)\s*;\s*type", text)
+        if dex and ty:
+            types[dex.group(1)[len("DEX_"):]] = (ty.group(1), ty.group(2))
+    return types
+
+
+def parse_type_chart():
+    """(attacking type, defending type) -> multiplier, for the listed pairs."""
+    chart = {}
+    for line in TYPE_MATCHUPS.read_text().splitlines():
+        m = re.match(r"\s*db\s+([A-Z_]+)\s*,\s*([A-Z_]+)\s*,\s*([A-Z_]+)", line)
+        if m and m.group(3) in EFFECTIVENESS:
+            chart[(m.group(1), m.group(2))] = EFFECTIVENESS[m.group(3)]
+    return chart
+
+
+def make_beats(types, chart):
+    """A beats B when its better type is super effective on B's full typing.
+
+    Effectiveness multiplies across both of the defender's types, so this cannot
+    be decided on single types alone: Grass is 2x on Rock but 0.5x on Flying, so
+    a Grass attacker is exactly neutral into Rock/Flying.
+    """
+    def effectiveness(attacking, defender):
+        product = 1.0
+        for defending in set(types[defender]):
+            product *= chart.get((attacking, defending), 1.0)
+        return product
+
+    def beats(a, b):
+        return max(effectiveness(t, b) for t in set(types[a])) > 1.0
+
+    return beats
+
+
+def build_starter_sets(types, evolves, legendaries, print_report):
+    """The fixed list of starter sets: hand-written ones, then type cycles.
+
+    Sets are chosen so no pair of species appears in two of them, which stops
+    the list filling up with near-duplicates.
+    """
+    evolved = {flatten(v) for v in evolves.values() if v}
+    candidates = sorted(
+        s for s in types
+        if s not in UNPLAYABLE_STARTERS
+        and s not in legendaries
+        and (flatten(s) not in evolved or s in EEVEELUTIONS)
+    )
+    beats = make_beats(types, parse_type_chart())
+    wins = {a: {b for b in candidates if b != a and beats(a, b)} for a in candidates}
+    cycles = [(a, b, c) for a in candidates for b in sorted(wins[a])
+              for c in sorted(wins[b]) if c != a and a in wins[c]]
+
+    used_pairs, uses, sets = set(), {}, []
+
+    def take(members, label):
+        for i in range(3):
+            for j in range(i + 1, 3):
+                used_pairs.add(frozenset((members[i], members[j])))
+        for s in members:
+            uses[s] = uses.get(s, 0) + 1
+        sets.append((label, members))
+
+    for label, members in STARTER_SET_PIECES:
+        take(members, label)
+
+    def free(triple):
+        return not any(frozenset((triple[i], triple[j])) in used_pairs
+                       for i in range(3) for j in range(i + 1, 3))
+
+    while len(sets) < TOTAL_STARTER_SETS:
+        pick = min((t for t in cycles if free(t)),
+                   key=lambda t: (sum(uses.get(s, 0) for s in t), t), default=None)
+        if pick is None:
+            break
+        take(pick, "cycle")
+
+    print_report(f"starter sets: {len(sets)} of {TOTAL_STARTER_SETS} "
+                 f"({len(STARTER_SET_PIECES)} hand written), "
+                 f"{len(cycles)} cycles available, "
+                 f"{len(uses)} of {len(candidates)} species used")
+    if len(sets) < TOTAL_STARTER_SETS:
+        raise SystemExit("ran out of cycles that share no pair with an existing set")
+    return sets
 
 
 def base_stat_total(path):
@@ -307,6 +460,37 @@ def main():
     for i, move in enumerate(HM_MOVES):
         n = sum(1 for idx, _, _ in pool if learners.get(idx, 0) & (1 << i))
         print(f"  {move}: {n} of {len(pool)} pool species can learn it")
+
+    # what each species evolves into, for carrying the rival's starter forward
+    evolves = parse_evolutions()
+    lines += [
+        "; what each species evolves into, 0 for none, by internal species index",
+        "RandoEvolvesTo::",
+        "\ttable_width 1",
+    ]
+    by_flat = {flatten(n): n for n in names.values()}
+    for i in range(NUM_INDEXES + 1):
+        target = evolves.get(flatten(names[i]), None) if i in names else None
+        lines.append(f"\tdb {by_flat.get(flatten(target), 0) if target else 0}")
+    lines += [f"\tassert_table_length {NUM_INDEXES + 1}", ""]
+
+    types = parse_species_types(stat_files)
+    legendaries = {n[len("DEX_"):] for n, d in dex_name_of_number.items()
+                   if d in LEGENDARY_DEX}
+    starter_sets = build_starter_sets(types, evolves, legendaries, print)
+    lines += [
+        "; Starter sets. The player takes one and the rival the next along, so the",
+        "; order carries the matchup. All but the first few are type cycles: each",
+        "; beats the next and loses to the one before.",
+        "RandoStarterTriples::",
+        "\ttable_width 3",
+    ]
+    for label, members in starter_sets:
+        lines.append(f"\tdb {', '.join(members)} ; {label}")
+    lines += ["\tassert_table_length RANDO_NUM_STARTER_SETS", ""]
+
+    OUT_CONSTANTS.write_text(OUT_CONSTANTS.read_text().rstrip("\n") + "\n" +
+                             f"DEF RANDO_NUM_STARTER_SETS EQU {len(starter_sets)}\n")
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text("\n".join(lines))
