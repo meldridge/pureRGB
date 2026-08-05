@@ -569,7 +569,14 @@ wLowHealthAlarmDisabled:: db
 
 wPlayerMonMinimized:: db
 
-	ds 13
+	ds 2
+
+;shinpokerednote: ADDED: exp bar wram values (only needed in battle)
+wEXPBarPixelLength::  ds 1
+wEXPBarBaseEXP::      ds 3
+wEXPBarCurEXP::       ds 3
+wEXPBarNeededEXP::    ds 3
+wEXPBarKeepFullFlag:: ds 1
 
 ; number of hits by enemy in attacks like Double Slap, etc.
 wEnemyNumHits:: db
@@ -2787,13 +2794,7 @@ wBoxMonNicksEnd::
 
 wBoxDataEnd::
 
-;shinpokerednote: ADDED: exp bar wram values
-wEXPBarPixelLength::  ds 1
-wEXPBarBaseEXP::      ds 3
-wEXPBarCurEXP::       ds 3
-wEXPBarNeededEXP::    ds 3
-wEXPBarKeepFullFlag:: ds 1
-
+; ds 11 ; used to be exp bar space here, could use this many bytes without issue possibly
 
 SECTION "Stack", WRAMX
 
