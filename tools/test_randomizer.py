@@ -373,6 +373,39 @@ def load_symbols(path):
     return syms
 
 
+def starter_order_test(check):
+    """Each starter slot must be beaten by the next one along.
+
+    Oak's Lab hands the rival the next slot: take STARTER1 and he takes
+    STARTER2, take STARTER3 and he takes STARTER1. He is meant to come away
+    with the advantage, so a cycle built the obvious "a beats b" way round
+    gives the player the advantage instead, which is what shipped.
+    """
+    sys.path.insert(0, str(ROOT / "tools"))
+    from generate_species_pool import (make_beats, parse_type_chart,
+                                       parse_species_types, parse_base_stat_files,
+                                       STARTER_SET_PIECES)
+    beats = make_beats(parse_species_types(parse_base_stat_files()),
+                       parse_type_chart())
+
+    src = (ROOT / "data/randomizer/species_pool.asm").read_text()
+    section = re.search(r"RandoStarterTriples::\n(.*?)\n\tassert", src, re.S).group(1)
+    triples = re.findall(r"db (\w+), (\w+), (\w+) ; (\w+)", section)
+
+    # the hand written sets are themes rather than cycles, so only the generated
+    # ones have to hold the relation
+    cycles = [t[:3] for t in triples if t[3] == "cycle"]
+    wrong = [t for t in cycles
+             if not (beats(t[1], t[0]) and beats(t[2], t[1]) and beats(t[0], t[2]))]
+    check("starters: every cycle runs the way Oak's Lab reads it",
+          not wrong, f"{len(wrong)} of {len(cycles)} backwards, e.g. {wrong[:2]}")
+    check("starters: the hand written sets are all present",
+          len(triples) - len(cycles) == len(STARTER_SET_PIECES))
+    # the vanilla set is the one case with a known right answer
+    check("starters: the vanilla set is in its original order",
+          ("CHARMANDER", "SQUIRTLE", "BULBASAUR") in [t[:3] for t in triples])
+
+
 def parse_item_constants():
     """Item constant name -> item id."""
     ids, index = {}, None
@@ -1150,6 +1183,9 @@ def main():
 
     print("\ninverse lookup (prize king)")
     unmap_test(rom, syms, 0x12345678, maps[0x12345678], pool, check)
+
+    print("\nstarter set ordering")
+    starter_order_test(check)
 
     print("\nground and hidden items")
     item_test(rom, syms, 0x12345678, item_pool, parse_item_constants(), check)

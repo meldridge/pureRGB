@@ -307,9 +307,13 @@ def build_starter_sets(types, evolves, legendaries, print_report):
         and (flatten(s) not in evolved or s in EEVEELUTIONS)
     )
     beats = make_beats(types, parse_type_chart())
-    wins = {a: {b for b in candidates if b != a and beats(a, b)} for a in candidates}
-    cycles = [(a, b, c) for a in candidates for b in sorted(wins[a])
-              for c in sorted(wins[b]) if c != a and a in wins[c]]
+    # Oak's Lab gives the rival the next slot along -- take STARTER1 and he
+    # takes STARTER2, take STARTER3 and he takes STARTER1 -- and he is supposed
+    # to end up with the advantage. So each member must be beaten by the one
+    # after it, which is the opposite direction to the obvious "a beats b".
+    loses = {a: {b for b in candidates if b != a and beats(b, a)} for a in candidates}
+    cycles = [(a, b, c) for a in candidates for b in sorted(loses[a])
+              for c in sorted(loses[b]) if c != a and a in loses[c]]
 
     used_pairs, uses, sets = set(), {}, []
 
@@ -341,6 +345,12 @@ def build_starter_sets(types, evolves, legendaries, print_report):
                  f"{len(uses)} of {len(candidates)} species used")
     if len(sets) < TOTAL_STARTER_SETS:
         raise SystemExit("ran out of cycles that share no pair with an existing set")
+
+    for label, (a, b, c) in sets:
+        if label != "cycle":
+            continue  # the hand written sets are themes, not cycles
+        assert beats(b, a) and beats(c, b) and beats(a, c), \
+            f"cycle ({a}, {b}, {c}) runs the wrong way for Oak's Lab"
     return sets
 
 
