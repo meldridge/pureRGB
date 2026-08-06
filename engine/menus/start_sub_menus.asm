@@ -525,7 +525,7 @@ StartMenu_TrainerInfo::
 	ld d, SET_PAL_TRAINER_CARD
 	call RunPaletteCommand
 	call GBPalNormal
-	call WaitForTextScrollButtonPress
+	callfar RandoTrainerCardWait ; PureRGBnote: ADDED: SELECT shows the seed
 	call GBPalWhiteOut
 	call LoadFontTilePatterns
 	call LoadScreenTilesFromBuffer2
@@ -622,11 +622,7 @@ DrawTrainerInfo:
 	ld [hli], a 
 	ld de, wPlayTimeMinutes
 	lb bc, LEADING_ZEROES | 1, 2
-	call PrintNumber
-	; PureRGBnote: ADDED: randomizer mode. Drawn from the randomizer's own bank,
-	; as this one has no room left for it.
-	callfar RandoDrawSeedOnCard
-	ret
+	jp PrintNumber
 
 TrainerInfo_FarCopyData:
 	ld a, BANK(TrainerInfoTextBoxTileGraphics)

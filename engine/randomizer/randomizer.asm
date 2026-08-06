@@ -146,49 +146,33 @@ RandoCopySeedText::
 	pop hl
 	ret
 
-; Adds a row to the trainer card's info box and writes the seed into it, lined
-; up under the name, money and time. Nothing is drawn for a normal game, which
-; keeps the card exactly as it was.
+; Stands in for the trainer card's wait, so SELECT there shows the seed.
 ;
-; The box is grown here rather than by asking for a taller one when it is drawn,
-; because that bank has no room left: its height is shared with the badge case,
-; so parameterising it costs bytes at both call sites. Instead the bottom edge
-; on row 7 is turned back into an interior row and a new edge drawn on row 8,
-; which is the blank spacer above the badges.
-RandoDrawSeedOnCard::
-	call RandoCopySeedText
+; The card has no room to print it: its rows are the box interior, the only gap
+; is the spacer above the badge case, and the case cannot move down without
+; leaving the screen. So it goes in a text box on demand instead, which also
+; keeps all of this out of the card's own code.
+;
+; A normal game gets the vanilla wait and nothing else.
+RandoTrainerCardWait::
+	call RandoCopySeedText ; also leaves the seed in wStringBuffer for the text
 	ld a, e
 	and a
+	jp z, WaitForTextScrollButtonPress
+.loop
+	call JoypadLowSensitivity
+	ldh a, [hJoy5]
+	and PAD_A | PAD_B | PAD_SELECT
+	jr z, .loop
+	bit B_PAD_SELECT, a
 	ret z
-	hlcoord 0, 7
-	ld [hl], $7c ; left edge
-	inc hl
-	ld c, SCREEN_WIDTH - 2
-	ld a, ' '
-	call .fillRow
-	ld [hl], $78 ; right edge
-	hlcoord 0, 8
-	ld [hl], $7d ; lower left corner
-	inc hl
-	ld c, SCREEN_WIDTH - 2
-	ld a, $77 ; bottom edge
-	call .fillRow
-	ld [hl], $7e ; lower right corner
-	hlcoord 2, 7
-	ld de, .label
-	call PlaceString
-	hlcoord 7, 7
-	ld de, wStringBuffer
-	jp PlaceString
-
-.fillRow
-	ld [hli], a
-	dec c
-	jr nz, .fillRow
+	ld hl, .seedText
+	rst _PrintText
 	ret
 
-.label
-	db "SEED/@"
+.seedText
+	text_far _RandomizerSeedText
+	text_end
 
 ; e = 0 if this save is a normal game, nonzero if it's a randomizer game.
 ; Handles sram itself. The answer comes back in e rather than the flags because
