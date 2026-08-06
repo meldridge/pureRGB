@@ -57,11 +57,17 @@ ApplyRandoSpecies::
 ; e = species in, e = species out.
 ; Assumes sram is enabled and the randomizer is already known to be on.
 RandoMapSpecies:
+	ld a, [sRandoFlags]
+	bit FLAG_RANDOM_WILD_OFF % 8, a
+	ret nz ; category switched off for this game, so the species stands
 	ld bc, sRandoShuffle
 	jr RandoMapThrough
 
 ; As above, but through the table used for opposing teams.
 RandoMapTrainerSpecies:
+	ld a, [sRandoFlags]
+	bit FLAG_RANDOM_TRAINERS_OFF % 8, a
+	ret nz
 	ld bc, sRandoShuffleTrainer
 	; fall through
 
@@ -94,6 +100,9 @@ RandoMapThrough:
 ; the pool, so a pool member appears as a replacement exactly once.
 ; Assumes sram is enabled and the randomizer is already known to be on.
 RandoUnmapSpecies:
+	ld a, [sRandoFlags]
+	bit FLAG_RANDOM_WILD_OFF % 8, a
+	ret nz ; nothing was mapped, so nothing to undo
 	push bc
 	push de
 	call EnsureSpeciesMap
@@ -584,6 +593,12 @@ RandoStarterSpecies::
 	push bc
 	push de
 	push hl
+	; ld a, b rather than pop af, so the bit result survives restoring the input
+	ld b, a
+	ld a, [sRandoFlags]
+	bit FLAG_RANDOM_STARTERS_OFF % 8, a
+	ld a, b
+	jr nz, .notAStarter ; left vanilla, and the constants are the vanilla species
 	push af
 	call EnsureSpeciesMap ; the set is chosen while generating, so make sure it has
 	pop af

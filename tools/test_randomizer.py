@@ -584,6 +584,73 @@ def unmap_test(rom, syms, seed, species_map, pool, check):
           all(call(species_map[index_of[p]], True) == index_of[p] for p in prizes))
 
 
+def gate_test(rom, syms, seed, species_map, trainer_map, pool, index_of, check):
+    """Each category flag must switch off its own mapping and no other.
+
+    The flags are stored inverted -- set means off -- so that a zero byte reads
+    as everything on, which is what saves made before they existed hold.
+    """
+    def prime(cpu, off_flag):
+        for i, ch in enumerate(b"RAND"):
+            cpu.ram[syms["sRandoMagic"][1] + i] = ch
+        for i in range(4):
+            cpu.ram[syms["sRandoSeed"][1] + i] = (seed >> (8 * i)) & 0xFF
+        if off_flag:
+            cpu.ram[syms["sRandoFlags"][1]] = 1 << RANDO_FLAG_BITS[off_flag]
+
+    def wild(species, off_flag=None):
+        bank, entry = syms["ApplyRandoSpecies"]
+        cpu = Cpu(rom, bank)
+        prime(cpu, off_flag)
+        cpu.e = species
+        cpu.run(entry)
+        return cpu.e
+
+    def trainer(species, off_flag=None):
+        bank, entry = syms["RandoRemapPartySpecies"]
+        cpu = Cpu(rom, bank)
+        prime(cpu, off_flag)
+        cpu.ram[syms["wCurOpponent"][1]] = 0  # not a rival, so the starter carry is off
+        cpu.ram[syms["wCurPartySpecies"][1]] = species
+        cpu.run(entry)
+        return cpu.ram[syms["wCurPartySpecies"][1]]
+
+    def starter(constant, off_flag=None):
+        bank, entry = syms["RandoStarterSpecies"]
+        cpu = Cpu(rom, bank)
+        prime(cpu, off_flag)
+        cpu.a = constant
+        cpu.run(entry)
+        return cpu.a
+
+    sample = pool[:4] + pool[-4:]
+    starter1 = index_of["CHARMANDER"]  # STARTER1 is the constant for it
+
+    check("gate: wild off leaves the species alone",
+          all(wild(s, "FLAG_RANDOM_WILD_OFF") == s for s in sample))
+    check("gate: wild on still maps",
+          all(wild(s) == species_map[s] for s in sample))
+    check("gate: trainers off leaves opposing teams alone",
+          all(trainer(s, "FLAG_RANDOM_TRAINERS_OFF") == s for s in sample))
+    check("gate: trainers on still maps",
+          all(trainer(s) == trainer_map[s] for s in sample))
+    check("gate: starters off gives back the vanilla starter",
+          starter(starter1, "FLAG_RANDOM_STARTERS_OFF") == starter1)
+    check("gate: starters on still substitutes",
+          starter(starter1) != starter1)
+
+    # the bits must be independent, or one row on the options page silently
+    # switches off another category
+    check("gate: the wild flag does not reach opposing teams",
+          all(trainer(s, "FLAG_RANDOM_WILD_OFF") == trainer_map[s] for s in sample))
+    check("gate: the trainer flag does not reach the wild table",
+          all(wild(s, "FLAG_RANDOM_TRAINERS_OFF") == species_map[s] for s in sample))
+    check("gate: the starter flag reaches neither table",
+          all(wild(s, "FLAG_RANDOM_STARTERS_OFF") == species_map[s] for s in sample)
+          and all(trainer(s, "FLAG_RANDOM_STARTERS_OFF") == trainer_map[s]
+                  for s in sample))
+
+
 def new_game_test(rom, syms, check):
     """The new game gate must arm or disarm the randomizer every time.
 
@@ -926,6 +993,10 @@ def main():
 
     print("\ninverse lookup (prize king)")
     unmap_test(rom, syms, 0x12345678, maps[0x12345678], pool, check)
+
+    print("\ncategory gates")
+    gate_test(rom, syms, 0x12345678, maps[0x12345678],
+              trainer_maps[0x12345678], pool, index_of, check)
 
     print("\nnew game gate")
     new_game_test(rom, syms, check)
