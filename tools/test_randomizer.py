@@ -954,34 +954,46 @@ def parse_starter_evolutions(rom, syms):
 
 
 def options_row_test(check):
-    """The RANDOM row's "bit set" x must sit on ON, not OFF.
+    """Every row's two cursor columns must match where its own labels are drawn.
 
-    Options3XPosBitData lists the bit-set x position first, and SetSingleBitOption
-    treats it as "cursor here means the bit is set". Getting it the wrong way round
-    shows ON for a cleared bit, so the menu reads ON while the feature is off --
-    and nothing in the rom tests can see it.
+    XPosBitData lists the bit-set x first, and the menu treats it as "cursor here
+    means the bit is set". Getting it round the wrong way shows ON for a cleared
+    bit, so the page reads ON while the feature is off -- which shipped once, and
+    nothing in the rom tests can see it. The two polarities on this page make it
+    easy to repeat: RANDOM is set when on, the categories are set when off.
     """
-    src = (ROOT / "engine/menus/options_menu3.asm").read_text()
+    src = (ROOT / "engine/menus/options_menu4.asm").read_text()
 
-    m = re.search(r'next\s+"( RANDOM:.*?)@?"', src)
-    if not m:
-        check("options: RANDOM row present", False, "row text not found")
+    rows = re.findall(r'next\s+"( [A-Z]+:.*?)@?"', src)
+    entries = re.findall(r"db\s+(\d+)\s*,\s*(\d+)\s*,\s*(\w+)(?:\s*%\s*8)?\s*\n", src)
+    m = re.search(r"DEF OPTIONS_PAGE_6_COUNT EQU (\d+)", src)
+    count = int(m.group(1)) if m else -1
+
+    check("options: the page's row count matches its text and data",
+          count == len(rows) == len(entries),
+          f"count {count}, {len(rows)} rows of text, {len(entries)} data entries")
+    if not (len(rows) == len(entries)):
         return
-    row = m.group(1)
-    on_col = row.index("ON")
 
-    m = re.search(r"db\s+(\d+)\s*,\s*(\d+)\s*,\s*BIT_RANDOMIZER", src)
-    if not m:
-        check("options: RANDOM bit data present", False, "table entry not found")
-        return
-    bit_set_x, bit_clear_x = int(m.group(1)), int(m.group(2))
+    for row, (set_x, clear_x, name) in zip(rows, entries):
+        label = row.split(":")[0].strip()
+        # text is placed at hlcoord 1, so the cursor column is the string index
+        on_col, off_col = row.index("ON"), row.index("OFF")
+        # a flag named _OFF is set when the category is off, so its columns are
+        # the reverse of RANDOM's
+        want = (off_col, on_col) if name.endswith("_OFF") else (on_col, off_col)
+        check(f"options: {label} row columns match its labels",
+              (int(set_x), int(clear_x)) == want,
+              f"data says {set_x}/{clear_x}, text puts ON at {on_col} "
+              f"and OFF at {off_col}")
 
-    # text is placed at hlcoord 1, so the cursor column equals the string index
-    check("options: ON is the bit-set position", bit_set_x == on_col,
-          f"bit-set x is {bit_set_x}, ON is at column {on_col}")
-    check("options: OFF is the bit-clear position",
-          bit_clear_x == row.index("OFF"),
-          f"bit-clear x is {bit_clear_x}, OFF is at column {row.index('OFF')}")
+    # removing the RANDOM row from page 5 must leave its tables aligned
+    page5 = (ROOT / "engine/menus/options_menu3.asm").read_text()
+    m = re.search(r"DEF OPTIONS_PAGE_5_COUNT EQU (\d+)", page5)
+    p5_rows = re.findall(r'next\s+"( [A-Z]+.*?)@?"', page5)
+    check("options: page 5's count matches its remaining rows",
+          m and int(m.group(1)) == len(p5_rows),
+          f"count {m.group(1) if m else '?'}, {len(p5_rows)} rows")
 
     # The seed screen writes its hint on row 3, where the entry underscores
     # start at column 10. Anything longer than 9 characters gets overwritten.
