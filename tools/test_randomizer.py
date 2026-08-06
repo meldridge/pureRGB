@@ -370,6 +370,27 @@ def load_symbols(path):
     return syms
 
 
+def parse_item_constants():
+    """Item constant name -> item id."""
+    ids, index = {}, None
+    for line in (ROOT / "constants/item_constants.asm").read_text().splitlines():
+        line = line.split(";")[0].strip()
+        if line.startswith("const_def"):
+            index = 0
+            continue
+        if index is None:
+            continue
+        m = re.match(r"^const\s+([A-Z0-9_]+)$", line)
+        if m:
+            ids[m.group(1)] = index
+            index += 1
+        elif re.match(r"^const_skip\s*(\d*)$", line):
+            index += int(re.match(r"^const_skip\s*(\d*)$", line).group(1) or 1)
+        elif re.match(r"^const_next\s+\$([0-9A-Fa-f]+)$", line):
+            index = int(re.match(r"^const_next\s+\$([0-9A-Fa-f]+)$", line).group(1), 16)
+    return ids
+
+
 def parse_rando_flag_bits():
     """Bit position of each randomizer setting within the byte they share.
 
@@ -582,6 +603,66 @@ def unmap_test(rom, syms, seed, species_map, pool, check):
     index_of = {v: k for k, v in name_of.items()}
     check("unmap: every prize mon round-trips",
           all(call(species_map[index_of[p]], True) == index_of[p] for p in prizes))
+
+
+def item_test(rom, syms, seed, item_pool, index_of_item, check):
+    """Ground and hidden items roll per spot, from the seed and the location."""
+    pool_ids = [index_of_item[name] for name in item_pool]
+    potion = index_of_item["POTION"]
+
+    def roll(entry, key_a, key_b, original, off_flag=None):
+        bank, addr = syms[entry]
+        cpu = Cpu(rom, bank)
+        for i, ch in enumerate(b"RAND"):
+            cpu.ram[syms["sRandoMagic"][1] + i] = ch
+        for i in range(4):
+            cpu.ram[syms["sRandoSeed"][1] + i] = (seed >> (8 * i)) & 0xFF
+        if off_flag:
+            cpu.ram[syms["sRandoFlags"][1]] = 1 << RANDO_FLAG_BITS[off_flag]
+        if entry == "RandoRollGroundItem":
+            cpu.ram[syms["wCurMap"][1]] = key_a
+            cpu.ram[0xFF00 + (syms["hSpriteIndex"][1] & 0xFF)] = key_b
+        else:
+            cpu.ram[syms["wHiddenItemOrCoinsIndex"][1]] = key_a
+        cpu.d = original
+        cpu.run(addr)
+        return cpu.e
+
+    ground = [roll("RandoRollGroundItem", m, s, potion)
+              for m in range(12) for s in range(1, 5)]
+    hidden = [roll("RandoRollHiddenItem", i, 0, potion) for i in range(48)]
+
+    check("items: every roll lands in the pool",
+          all(v in pool_ids for v in ground + hidden))
+    check("items: the same spot always rolls the same item",
+          roll("RandoRollGroundItem", 5, 2, potion)
+          == roll("RandoRollGroundItem", 5, 2, potion))
+    check("items: different spots mostly differ",
+          len(set(ground)) > len(pool_ids) // 2,
+          f"only {len(set(ground))} distinct across {len(ground)} spots")
+    # a ground spot and a hidden spot with the same index must not agree, or the
+    # two key spaces have collapsed into one
+    collisions = sum(1 for i in range(48)
+                     if roll("RandoRollGroundItem", i, 0, potion) == hidden[i])
+    check("items: ground and hidden keys do not collide",
+          collisions < 12, f"{collisions} of 48 agreed")
+    check("items: gate off leaves the item alone",
+          roll("RandoRollGroundItem", 5, 2, potion, "FLAG_RANDOM_ITEMS_OFF") == potion)
+
+    # Key items are absent from the pool, so a spot holding one is left alone by
+    # the same test that keeps them from being handed out. This is what stops a
+    # seed losing the Silph Scope.
+    for key_item in ("SILPH_SCOPE", "LIFT_KEY", "SECRET_KEY", "GOLD_TEETH",
+                     "CARD_KEY", "S_S_TICKET"):
+        ident = index_of_item[key_item]
+        if roll("RandoRollGroundItem", 5, 2, ident) != ident:
+            check(f"items: {key_item} stays where it is", False)
+            break
+    else:
+        check("items: key item spots are left alone", True)
+    check("items: no key item can be handed out",
+          not ({"SILPH_SCOPE", "LIFT_KEY", "SECRET_KEY", "GOLD_TEETH",
+                "CARD_KEY", "S_S_TICKET", "HM_SURF"} & set(item_pool)))
 
 
 def tm_test(rom, syms, seeds, check):
@@ -1040,6 +1121,9 @@ def main():
 
     print("\ninverse lookup (prize king)")
     unmap_test(rom, syms, 0x12345678, maps[0x12345678], pool, check)
+
+    print("\nground and hidden items")
+    item_test(rom, syms, 0x12345678, item_pool, parse_item_constants(), check)
 
     print("\ntm order")
     tm_test(rom, syms, seeds, check)

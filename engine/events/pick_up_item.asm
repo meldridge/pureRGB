@@ -35,6 +35,15 @@ PickUpItemCommon:
 	add hl, de
 	push bc
 	ld b, [hl]
+;;;;;;;;;; PureRGBnote: ADDED: randomizer mode. bc is saved across the call
+; because the bank switch clobbers it and c is the quantity, which stays with
+; the spot rather than following the item.
+	ld d, b
+	push bc
+	callfar RandoRollGroundItem
+	pop bc
+	ld b, e
+;;;;;;;;;;
 	call GiveItem
 	pop bc
 	ld hl, NoMoreRoomForItemText

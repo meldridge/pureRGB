@@ -658,6 +658,85 @@ RandoRemapNamedTm::
 	ld [wNamedObjectIndex], a
 	ret
 
+; d = the item that would have been found. Carry if it may be swapped, which is
+; just whether it is in the pool: key items, hms and tms were left out of it, so
+; the spots holding those are left alone by the same test.
+ItemInPool:
+	ld hl, RandoItemPool
+	ld c, RANDO_ITEM_POOL_SIZE
+.loop
+	ld a, [hli]
+	cp d
+	jr z, .yes
+	dec c
+	jr nz, .loop
+	and a
+	ret
+.yes
+	scf
+	ret
+
+; d = the item that would have been found, b and c identify the spot.
+; e = the item to hand over instead.
+; A pure function of the seed and the spot, so it is stable across a save and
+; reload and needs no table of its own. sRandoRngState is scratch here, which is
+; safe because generating a map reseeds it from sRandoSeed first.
+RandoRollItem:
+	call RandoSramOn
+	call RandoEnabled
+	jr z, .keep
+	ld a, [sRandoFlags]
+	bit FLAG_RANDOM_ITEMS_OFF % 8, a
+	jr nz, .keep
+	push bc ; the scan counts down in c, which is half the key
+	call ItemInPool
+	pop bc
+	jr nc, .keep
+	push bc
+	ld hl, sRandoSeed
+	ld de, sRandoRngState
+	ld c, 4
+	call RandoCopyBytes
+	pop bc
+; Both key bytes go in before the generator is stepped, since RandoRand uses c
+; for its shift counts and would eat the second one.
+	ld hl, sRandoRngState
+	ld a, [hl]
+	xor b
+	ld [hli], a
+	ld a, [hl]
+	xor c
+	ld [hl], a
+	call RandoRand
+	call RandoRand
+	ld c, RANDO_ITEM_POOL_SIZE
+	call RandoRandRange
+	ld hl, RandoItemPool
+	ld d, 0
+	ld e, a
+	add hl, de
+	ld e, [hl]
+	jp RandoSramOff
+.keep
+	ld e, d
+	jp RandoSramOff
+
+; An item ball on the ground. The map and the object within it name the spot.
+RandoRollGroundItem::
+	ld a, [wCurMap]
+	ld b, a
+	ldh a, [hSpriteIndex]
+	ld c, a
+	jr RandoRollItem
+
+; A hidden item. wHiddenItemOrCoinsIndex is already unique across the game, so
+; the second byte only has to hold these apart from the ground items.
+RandoRollHiddenItem::
+	ld a, [wHiddenItemOrCoinsIndex]
+	ld b, a
+	ld c, $5A ; separates the two key spaces
+	jr RandoRollItem
+
 ; Builds the tm order: entry n is handed over in place of tm n plus one. A
 ; permutation rather than independent draws, so no two sources give the same tm.
 ShuffleTms:

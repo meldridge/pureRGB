@@ -38,6 +38,13 @@ HiddenItemsInit:
 	ld a, 1
 	ld [wDoNotWaitForButtonPressAfterDisplayingText], a
 	ld a, [wHiddenEventFunctionArgument] ; item ID
+;;;;;;;;;; PureRGBnote: ADDED: randomizer mode. Rolled before the name is taken,
+; so the message and the item that arrives are the same one. The roll is a pure
+; function of the seed and the spot, so repeating it at the give below agrees.
+	ld d, a
+	callfar RandoRollHiddenItem
+	ld a, e
+;;;;;;;;;;
 	ld [wNamedObjectIndex], a
 	call GetItemName
 	xor a ; clear z flag and set a = 0
@@ -72,7 +79,11 @@ FoundHiddenItemText::
 	pop bc
 .give
 	ld a, [wHiddenEventFunctionArgument] ; item ID
-	ld b, a
+	ld d, a
+	push bc ; c is the quantity, and the bank switch clobbers it
+	callfar RandoRollHiddenItem
+	pop bc
+	ld b, e
 	call GiveItem
 	jr nc, .bagFull
 	ld hl, wObtainedHiddenItemsFlags
