@@ -1015,6 +1015,21 @@ def options_row_test(check):
     check("seed screen: hint fits before the entry field", len(hint) <= 9,
           f'"{hint}" is {len(hint)} chars, only 9 columns are free')
 
+    # Option info shares the standard text box, and the control characters are
+    # wider than they look: # is POKe and <TRAINER> is spelt out.
+    info = (ROOT / "text/Randomizer.asm").read_text()
+    expansions = {"#": "POKe", "<TRAINER>": "TRAINER"}
+    over = []
+    for name, body in re.findall(
+            r"^(_\w+)::\n((?:\t(?:text|line|cont|para)\s+\"[^\"]*\"\n)+)", info, re.M):
+        for line in re.findall(r'"([^"]*)"', body):
+            for token, spelt in expansions.items():
+                line = line.replace(token, spelt)
+            if len(line) > 18:
+                over.append((name, line))
+    check("info text: every line fits the text box", not over,
+          "; ".join(f"{n}: {l!r} is {len(l)}" for n, l in over[:3]))
+
     # The Game Corner draws its prize list from ROM rather than through
     # _GivePokemon, so each displayed name needs its own remap. wPrize1-3 must
     # stay vanilla: the price and the level are keyed to the slot's own species.

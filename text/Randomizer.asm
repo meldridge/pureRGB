@@ -8,52 +8,47 @@ _RandomizerSeedText::
 	prompt
 
 _RandomizerInfoText::
-	text "Master switch."
-	line "Asks for a seed"
-	cont "on a new game."
-	para "Leave the seed"
-	line "blank to get a"
-	cont "random one."
+	text "If ON, you'll be"
+	line "asked for a seed"
+	cont "when you start a"
+	cont "new game."
+	para "Leave it blank"
+	line "for a random one."
 	prompt
 
-; Each row below is read once when a new game starts, so changing one part way
+; The rows below are read once when a new game starts, so changing one part way
 ; through a run has no effect on that run.
 _RandomizerWildInfoText::
-	text "Shuffles what"
-	line "lives in grass"
-	cont "and water, plus"
-	cont "gifts, statics"
-	cont "and trades."
+	text "If ON, shuffles"
+	line "wild #MON, and"
+	cont "any you're given"
+	cont "or trade for."
 	prompt
 
 _RandomizerTrainersInfoText::
-	text "Shuffles the"
-	line "teams trainers"
-	cont "use. Kept apart"
-	cont "from the wild"
-	cont "shuffle."
+	text "If ON, shuffles"
+	line "the #MON that"
+	cont "<TRAINER>s use."
 	prompt
 
 _RandomizerStartersInfoText::
-	text "Shuffles the"
-	line "three #MON on"
-	cont "OAK's table."
+	text "If ON, shuffles"
+	line "the three #MON"
+	cont "on OAK's table."
 	prompt
 
 _RandomizerTmsInfoText::
-	text "Shuffles which"
-	line "TM you are"
-	cont "given. What each"
-	cont "TM teaches does"
-	cont "not change."
+	text "If ON, shuffles"
+	line "which TM you get,"
+	cont "but not what each"
+	cont "TM teaches."
 	prompt
 
 _RandomizerItemsInfoText::
-	text "Shuffles items"
-	line "found on the"
-	cont "ground or hidden."
-	para "Key items stay"
-	line "where they are."
+	text "If ON, shuffles"
+	line "items you find"
+	cont "or uncover. Key"
+	cont "items stay put."
 	prompt
 
 ; Generic replacement for the starter prompts, which name a fixed species and type.
