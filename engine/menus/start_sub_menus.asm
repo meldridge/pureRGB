@@ -622,7 +622,11 @@ DrawTrainerInfo:
 	ld [hli], a 
 	ld de, wPlayTimeMinutes
 	lb bc, LEADING_ZEROES | 1, 2
-	jp PrintNumber
+	call PrintNumber
+	; PureRGBnote: ADDED: randomizer mode. Drawn from the randomizer's own bank,
+	; as this one has no room left for it.
+	callfar RandoDrawSeedOnCard
+	ret
 
 TrainerInfo_FarCopyData:
 	ld a, BANK(TrainerInfoTextBoxTileGraphics)

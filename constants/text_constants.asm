@@ -6,6 +6,10 @@ DEF TRAINER_NAME_LENGTH EQU 13
 DEF MOVE_NAME_LENGTH    EQU 14
 DEF NAME_BUFFER_LENGTH  EQU 20
 DEF BOX_NAME_LENGTH     EQU 6
+; PureRGBnote: ADDED: randomizer seed, entered on the naming screen so it has to
+; fit NAME_LENGTH - 1. Here rather than with the randomizer code because sram.asm
+; sizes a buffer with it.
+DEF RANDO_SEED_LENGTH   EQU 8
 
 ; PrintNumber, PrintBCDNumber
 	const_def 5

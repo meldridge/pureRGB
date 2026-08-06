@@ -59,6 +59,9 @@ sRandoFlags:: db
 ; Which tm item each tm number hands over. Ground and hidden items need no table,
 ; being rolled from the seed and the location they were found at.
 sRandoTms:: ds NUM_TMS
+; The seed as it was typed. sRandoSeed is a one way fold of this, so the letters
+; have to be kept if the trainer card is ever to show something re-enterable.
+sRandoSeedText:: ds RANDO_SEED_LENGTH + 1
 
 ; still quite a bit of space left here, around 1000 bytes
 

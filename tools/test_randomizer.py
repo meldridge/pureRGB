@@ -373,38 +373,6 @@ def load_symbols(path):
     return syms
 
 
-def starter_order_test(check):
-    """Each starter slot must be beaten by the next one along.
-
-    Oak's Lab hands the rival the next slot: take STARTER1 and he takes
-    STARTER2, take STARTER3 and he takes STARTER1. He is meant to come away
-    with the advantage, so a cycle built the obvious "a beats b" way round
-    gives the player the advantage instead, which is what shipped.
-    """
-    sys.path.insert(0, str(ROOT / "tools"))
-    from generate_species_pool import (make_beats, parse_type_chart,
-                                       parse_species_types, parse_base_stat_files,
-                                       STARTER_SET_PIECES)
-    beats = make_beats(parse_species_types(parse_base_stat_files()),
-                       parse_type_chart())
-
-    src = (ROOT / "data/randomizer/species_pool.asm").read_text()
-    section = re.search(r"RandoStarterTriples::\n(.*?)\n\tassert", src, re.S).group(1)
-    triples = re.findall(r"db (\w+), (\w+), (\w+) ; (\w+)", section)
-
-    # the hand written sets are themes rather than cycles, so only the generated
-    # ones have to hold the relation
-    cycles = [t[:3] for t in triples if t[3] == "cycle"]
-    wrong = [t for t in cycles
-             if not (beats(t[1], t[0]) and beats(t[2], t[1]) and beats(t[0], t[2]))]
-    check("starters: every cycle runs the way Oak's Lab reads it",
-          not wrong, f"{len(wrong)} of {len(cycles)} backwards, e.g. {wrong[:2]}")
-    check("starters: the hand written sets are all present",
-          len(triples) - len(cycles) == len(STARTER_SET_PIECES))
-    # the vanilla set is the one case with a known right answer
-    check("starters: the vanilla set is in its original order",
-          ("CHARMANDER", "SQUIRTLE", "BULBASAUR") in [t[:3] for t in triples])
-
 
 def parse_item_constants():
     """Item constant name -> item id."""
@@ -835,8 +803,10 @@ def new_game_test(rom, syms, check):
         cpu.run(entry)
         rendered = bytes(cpu.ram[syms["wStringBuffer"][1]:
                                  syms["wStringBuffer"][1] + 9])
+        stored = bytes(cpu.ram[syms["sRandoSeedText"][1]:
+                               syms["sRandoSeedText"][1] + 9])
         return (bytes(cpu.ram[magic:magic + 4]), bytes(cpu.ram[sseed:sseed + 4]),
-                rendered)
+                rendered, stored)
 
     def decode(rendered):
         """Charmap: 'A' is $80, '@' terminates."""
@@ -847,12 +817,16 @@ def new_game_test(rom, syms, check):
             out += chr(ord("A") + b - 0x80) if 0x80 <= b <= 0x99 else "?"
         return out
 
-    m, s, shown = seed_from("JOLTEON")
+    m, s, shown, stored = seed_from("JOLTEON")
     check("seed: typed text is shown back unchanged", decode(shown) == "JOLTEON",
           f"showed {decode(shown)!r}")
+    # sRandoSeed is a one way fold, so the letters have to be kept separately or
+    # the trainer card has nothing re-enterable to show.
+    check("seed: the typed text is kept for the trainer card",
+          decode(stored) == "JOLTEON", f"stored {decode(stored)!r}")
 
     # A rolled seed is only useful if typing it back reproduces the same world.
-    _, rolled_seed, rolled_shown = seed_from("")
+    _, rolled_seed, rolled_shown, rolled_stored = seed_from("")
     rolled_text = decode(rolled_shown)
     check("seed: rolled seed is typable", rolled_text.isalpha() and rolled_text,
           f"showed {rolled_text!r}")
@@ -910,10 +884,14 @@ def starter_sets_test(rom, syms, seed, starters, check):
     legendary = {"MOLTRES", "ARTICUNO", "ZAPDOS", "MEWTWO", "MEW"}
 
     check("starters: 151 sets emitted", len(sets) == 151, f"got {len(sets)}")
+    # Each slot must be beaten by the *next* one, because Oak's Lab hands the
+    # rival the next slot along and he is meant to have the advantage. This read
+    # the other way round for a while, which enforced the bug rather than
+    # catching it: the player got the advantage in every seed.
     bad = [s for s in generated
-           if not (beats(s[0], s[1]) and beats(s[1], s[2]) and beats(s[2], s[0]))]
-    check("starters: every generated set is a real cycle", not bad,
-          "; ".join(" > ".join(s) for s in bad[:3]))
+           if not (beats(s[1], s[0]) and beats(s[2], s[1]) and beats(s[0], s[2]))]
+    check("starters: every generated set is a cycle the rival wins", not bad,
+          "; ".join(" < ".join(s) for s in bad[:3]))
     pairs = [frozenset((s[i], s[j])) for s in sets
              for i in range(3) for j in range(i + 1, 3)]
     check("starters: no pair of species repeats across sets",
@@ -922,6 +900,9 @@ def starter_sets_test(rom, syms, seed, starters, check):
           all(flatten(x) not in evolved or x in EEVEELUTIONS
               for s in generated for x in s))
     check("starters: Ditto never appears", all("DITTO" not in s for s in sets))
+    # the one set whose right answer is known independently of the type chart
+    check("starters: the vanilla set keeps its original order",
+          ("CHARMANDER", "SQUIRTLE", "BULBASAUR") in set(sets))
     check("starters: legendaries only in their own set",
           all(not (legendary & set(s)) for s in generated))
 
@@ -1183,9 +1164,6 @@ def main():
 
     print("\ninverse lookup (prize king)")
     unmap_test(rom, syms, 0x12345678, maps[0x12345678], pool, check)
-
-    print("\nstarter set ordering")
-    starter_order_test(check)
 
     print("\nground and hidden items")
     item_test(rom, syms, 0x12345678, item_pool, parse_item_constants(), check)

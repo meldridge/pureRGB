@@ -8,8 +8,6 @@
 
 INCLUDE "data/randomizer/species_pool.asm"
 
-DEF RANDO_SEED_LENGTH EQU 8 ; must fit the naming screen's NAME_LENGTH - 1
-
 ; nz if this save is a randomizer game. Requires sram enabled. Clobbers a, hl.
 RandoEnabled::
 	ld hl, sRandoMagic
@@ -126,6 +124,44 @@ RandoUnmapSpecies:
 	add hl, bc
 	ld e, [hl]
 	ret
+
+; Copies the seed as typed into wStringBuffer so it can be printed, and returns
+; e nonzero if this is a randomizer game at all. Lets the trainer card show a
+; seed the player can write down and enter again.
+RandoCopySeedText::
+	push hl
+	call RandoSramOn
+	call RandoEnabled
+	jr z, .off
+	ld hl, sRandoSeedText
+	ld de, wStringBuffer
+	ld c, RANDO_SEED_LENGTH + 1
+	call RandoCopyBytes
+	ld e, 1
+	jr .done
+.off
+	ld e, 0
+.done
+	call RandoSramOff
+	pop hl
+	ret
+
+; Writes the seed onto the trainer card, in the gap between the info box and the
+; badge case. Nothing is drawn for a normal game.
+RandoDrawSeedOnCard::
+	call RandoCopySeedText
+	ld a, e
+	and a
+	ret z
+	hlcoord 1, 8
+	ld de, .label
+	call PlaceString
+	hlcoord 6, 8
+	ld de, wStringBuffer
+	jp PlaceString
+
+.label
+	db "SEED/@"
 
 ; e = 0 if this save is a normal game, nonzero if it's a randomizer game.
 ; Handles sram itself. The answer comes back in e rather than the flags because
@@ -419,6 +455,10 @@ RandoDeriveSeed::
 	pop hl
 	jr .foldLoop
 .foldDone
+	ld hl, wStringBuffer
+	ld de, sRandoSeedText
+	ld c, RANDO_SEED_LENGTH + 1
+	call RandoCopyBytes
 	ld hl, sRandoRngState
 	ld de, sRandoSeed
 	ld c, 4
