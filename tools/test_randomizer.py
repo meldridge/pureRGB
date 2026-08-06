@@ -531,6 +531,40 @@ def apply_species_test(rom, syms, seed, species_map, trainer_map, pool, check):
           all(call_party(s, False) == s for s in sample))
 
 
+def unmap_test(rom, syms, seed, species_map, pool, check):
+    """RandoUnmapPokedexNum reads a gift back as the slot it came out of."""
+    bank, entry = syms["RandoUnmapPokedexNum"]
+    dex = syms["wPokedexNum"][1]
+
+    def call(species, enabled):
+        cpu = Cpu(rom, bank)
+        if enabled:
+            for i, ch in enumerate(b"RAND"):
+                cpu.ram[syms["sRandoMagic"][1] + i] = ch
+            for i in range(4):
+                cpu.ram[syms["sRandoSeed"][1] + i] = (seed >> (8 * i)) & 0xFF
+        cpu.ram[dex] = species
+        cpu.run(entry)
+        return cpu.ram[dex]
+
+    check("unmap: inverts the map for every species in the pool",
+          all(call(species_map[s], True) == s for s in pool))
+    check("unmap: identity when randomizer off",
+          all(call(species_map[s], False) == species_map[s] for s in pool[:5]))
+    check("unmap: an index outside the pool stands for itself",
+          call(0xBF, True) == 0xBF)
+
+    # The Prize King checks these six against PrizeMonLevelDictionary, so each
+    # has to survive the round trip or he rejects a prize he just sold.
+    prizes = ("JYNX", "ELECTABUZZ", "TANGELA", "DRATINI", "DITTO", "PORYGON")
+    sys.path.insert(0, str(ROOT / "tools"))
+    from generate_species_pool import parse_species_constants
+    name_of = parse_species_constants()
+    index_of = {v: k for k, v in name_of.items()}
+    check("unmap: every prize mon round-trips",
+          all(call(species_map[index_of[p]], True) == index_of[p] for p in prizes))
+
+
 def new_game_test(rom, syms, check):
     """The new game gate must arm or disarm the randomizer every time.
 
@@ -869,6 +903,9 @@ def main():
     print("\nsingle species lookup (rod hook)")
     apply_species_test(rom, syms, 0x12345678, maps[0x12345678],
                        trainer_maps[0x12345678], pool, check)
+
+    print("\ninverse lookup (prize king)")
+    unmap_test(rom, syms, 0x12345678, maps[0x12345678], pool, check)
 
     print("\nnew game gate")
     new_game_test(rom, syms, check)

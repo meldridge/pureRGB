@@ -89,6 +89,35 @@ RandoMapThrough:
 	ld e, [hl]
 	ret
 
+; e = species in, e = the species whose slot it was put in.
+; The inverse of RandoMapSpecies, found by scanning: the map is a permutation of
+; the pool, so a pool member appears as a replacement exactly once.
+; Assumes sram is enabled and the randomizer is already known to be on.
+RandoUnmapSpecies:
+	push bc
+	push de
+	call EnsureSpeciesMap
+	pop de
+	pop bc
+	ld hl, sRandoShuffle
+	ld b, 0
+.loop
+	ld a, [hli]
+	cp e
+	jr z, .found
+	inc b
+	ld a, b
+	cp RANDO_POOL_SIZE
+	jr c, .loop
+	ret ; nothing was mapped to it, so it stands for itself
+.found
+	ld c, b
+	ld b, 0
+	ld hl, RandoPool
+	add hl, bc
+	ld e, [hl]
+	ret
+
 ; e = 0 if this save is a normal game, nonzero if it's a randomizer game.
 ; Handles sram itself. The answer comes back in e rather than the flags because
 ; callers reach this through a bank switch.
@@ -263,6 +292,21 @@ RandoRemapNamedWild::
 	call RandoMapSpecies
 	ld a, e
 	ld [wNamedObjectIndex], a
+.done
+	jp RandoSramOff
+
+; Reads wPokedexNum as a species the seed handed over and turns it back into the
+; one it stands in for. The Prize King knows his prizes by species, so a mon
+; bought at the counter has to be recognised as the slot it came out of.
+RandoUnmapPokedexNum::
+	call RandoSramOn
+	call RandoEnabled
+	jr z, .done
+	ld a, [wPokedexNum]
+	ld e, a
+	call RandoUnmapSpecies
+	ld a, e
+	ld [wPokedexNum], a
 .done
 	jp RandoSramOff
 

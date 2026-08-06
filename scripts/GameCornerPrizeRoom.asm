@@ -51,11 +51,13 @@ GameCornerPrizeRoomPrizeKingText:
 	pop af
 	ld hl, .suitYourself
 	jr c, .printDone
+	ld a, [wCurPartySpecies]
+	ld [wPokedexNum], a
+	callfar RandoUnmapPokedexNum ; PureRGBnote: ADDED: randomizer mode. He recognises
+	                             ; prizes by species, so read the mon as its slot.
 	callfar IsMonAPrizePokemon
 	ld hl, .wrongMon
 	jr nc, .printDone
-	ld a, [wCurPartySpecies]
-	ld [wPokedexNum], a
 	call GetMonName
 	ld a, [wPokedexNum]
 	ld hl, PrizeKingTextPointers
@@ -64,6 +66,8 @@ GameCornerPrizeRoomPrizeKingText:
 	inc hl
 	hl_deref
 	rst _PrintText
+	ld a, [wCurPartySpecies] ; PureRGBnote: ADDED: the learnset is unlocked for the
+	ld [wPokedexNum], a      ; mon actually in hand, not for the slot it came from.
 	call IndexToPokedex
 	ld a, [wPokedexNum]
 	ld h, a

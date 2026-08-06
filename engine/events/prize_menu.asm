@@ -293,8 +293,10 @@ GoodChoiceText::
 	text_waitbutton
 	text_end
 
+; Keyed on wPokedexNum rather than the mon in hand: under the randomizer the
+; caller puts the species a prize slot originally held there.
 IsMonAPrizePokemon::
-	ld a, [wCurPartySpecies]
+	ld a, [wPokedexNum]
 	ld hl, PrizeMonLevelDictionary
 	ld de, 2
 	jp IsInArray
