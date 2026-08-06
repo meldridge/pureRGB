@@ -469,6 +469,12 @@ RandoSeedText:
 ; Writes the magic so the state is recognised, and clears sRandoMapSeed so the
 ; permutation is rebuilt on first use. Assumes sram is on.
 RandoFinishStart:
+; Freeze the settings this game is being started with. The six are consecutive
+; and so share one event byte, copied wholesale: a bit means the same thing in
+; sRandoFlags as it does in wEventFlags.
+	ASSERT FLAG_RANDOM_WILD_OFF / 8 == FLAG_RANDOM_ITEMS_OFF / 8
+	ld a, [wEventFlags + (FLAG_RANDOM_WILD_OFF / 8)]
+	ld [sRandoFlags], a
 	ld hl, sRandoMagic
 	ld a, $52
 	ld [hli], a
@@ -492,6 +498,7 @@ RandoFinishStart:
 RandoClearGame::
 	call RandoSramOn
 	xor a
+	ld [sRandoFlags], a
 	ld hl, sRandoMagic
 	ld c, 8 ; magic and seed
 .clear
@@ -545,6 +552,8 @@ GenerateSpeciesMap:
 ; aside, then the wild one is built in place from where the generator had got
 ; to, which is what makes the two disagree. Only the wild table gets the
 ; guardrail, since it decides what is catchable.
+	ld a, 1
+	ld [sRandoTrainerPass], a
 	call ShufflePool
 	call ShuffleWithinWindows
 	ld hl, sRandoShuffle
@@ -552,6 +561,8 @@ GenerateSpeciesMap:
 	ld c, RANDO_POOL_SIZE
 	call RandoCopyBytes
 
+	xor a
+	ld [sRandoTrainerPass], a
 	call ShufflePool
 	call ShuffleWithinWindows
 	call HmGuardrail
@@ -770,6 +781,9 @@ SwapShuffleEntries:
 	ld [de], a
 	ret
 
+; 4 passes only moves the count of species left unmapped from 12 to 10 while
+; doubling generation, so the remainder is the level rule forbidding pairings
+; rather than too few attempts.
 DEF RANDO_SHUFFLE_PASSES EQU 2
 
 ; Every position offers to trade with a random one inside its window. A trade is
@@ -804,12 +818,12 @@ TryWindowSwap:
 	ld a, [sRandoPI]
 	ld b, a
 	ld a, [sRandoJ]
-	call FitsWindow
+	call FitsSlot
 	ret nc
 	ld a, [sRandoPJ]
 	ld b, a
 	ld a, [sRandoI]
-	call FitsWindow
+	call FitsSlot
 	ret nc
 	jp SwapShuffleEntries
 
@@ -846,6 +860,41 @@ OccupantOrigPos:
 	ld e, a
 	add hl, de
 	ld a, [hl]
+	ret
+
+; a = target position, b = pool position of the species. Carry if that species
+; may stand in there: inside the slot's base stat window, and able to exist at
+; the level it is caught at. Opposing teams are exempt from the level rule, as
+; their mons are fought rather than held.
+; bit rather than and, so FitsWindow's carry survives the test.
+FitsSlot:
+	ld c, a
+	call FitsWindow
+	ret nc
+	ld a, [sRandoTrainerPass]
+	bit 0, a
+	ld a, c
+	ret nz
+	; fall through
+
+; a = target position, b = pool position of the species. Carry if the species
+; could legitimately be held at the lowest level that slot is caught at, which
+; is what keeps a level 3 Kakuna off Route 1.
+FitsLevel:
+	ld d, 0
+	ld e, a
+	ld hl, RandoLevelCap
+	add hl, de
+	ld a, [hl]
+	ld e, b
+	ld hl, RandoMinLevel
+	add hl, de
+	cp [hl]
+	jr c, .no
+	scf
+	ret
+.no
+	and a
 	ret
 
 ; a = target position, b = pool position of the species. Carry if it fits.

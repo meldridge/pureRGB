@@ -159,17 +159,17 @@ RandoWindowLo::
 	db 0
 	db 0
 	db 0
-	db 5
-	db 5
-	db 5
-	db 5
-	db 5
-	db 5
-	db 5
-	db 5
-	db 5
-	db 8
-	db 9
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
+	db 0
 	db 9
 	db 9
 	db 9
@@ -219,7 +219,7 @@ RandoWindowLo::
 	db 52
 	db 53
 	db 56
-	db 58
+	db 57
 	db 58
 	db 58
 	db 58
@@ -227,7 +227,7 @@ RandoWindowLo::
 	db 59
 	db 60
 	db 65
-	db 69
+	db 66
 	db 69
 	db 69
 	db 71
@@ -297,22 +297,22 @@ RandoWindowLo::
 	db 86
 	db 92
 	db 92
-	db 134
-	db 134
-	db 141
+	db 130
+	db 130
+	db 130
 	assert_table_length RANDO_POOL_SIZE
 
 RandoWindowHi::
 	table_width 1
-	db 4
-	db 4
-	db 4
-	db 4
-	db 4
-	db 13
-	db 13
-	db 13
-	db 14
+	db 15
+	db 15
+	db 15
+	db 15
+	db 15
+	db 15
+	db 15
+	db 15
+	db 15
 	db 21
 	db 21
 	db 24
@@ -361,7 +361,7 @@ RandoWindowHi::
 	db 63
 	db 63
 	db 64
-	db 64
+	db 65
 	db 68
 	db 70
 	db 71
@@ -370,9 +370,9 @@ RandoWindowHi::
 	db 71
 	db 71
 	db 72
-	db 72
-	db 72
-	db 72
+	db 73
+	db 73
+	db 73
 	db 75
 	db 75
 	db 76
@@ -434,23 +434,354 @@ RandoWindowHi::
 	db 142
 	db 142
 	db 142
-	db 142
-	db 142
-	db 142
-	db 142
-	db 144
-	db 144
-	db 144
-	db 144
-	db 144
-	db 144
-	db 144
+	db 145
+	db 145
+	db 145
+	db 145
+	db 145
+	db 145
+	db 145
+	db 145
+	db 145
+	db 145
+	db 145
 	db 145
 	db 145
 	db 145
 	db 145
 	db 145
 	assert_table_length RANDO_POOL_SIZE
+
+RandoMinLevel::
+	table_width 1
+	db 1
+	db 1
+	db 7
+	db 7
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 18
+	db 1
+	db 1
+	db 1
+	db 16
+	db 16
+	db 1
+	db 21
+	db 16
+	db 16
+	db 16
+	db 16
+	db 23
+	db 24
+	db 28
+	db 1
+	db 21
+	db 30
+	db 25
+	db 10
+	db 20
+	db 1
+	db 10
+	db 26
+	db 1
+	db 1
+	db 27
+	db 28
+	db 1
+	db 1
+	db 16
+	db 1
+	db 22
+	db 23
+	db 1
+	db 1
+	db 30
+	db 16
+	db 16
+	db 20
+	db 22
+	db 1
+	db 1
+	db 1
+	db 1
+	db 1
+	db 36
+	db 23
+	db 25
+	db 25
+	db 26
+	db 1
+	db 28
+	db 23
+	db 1
+	db 1
+	db 27
+	db 25
+	db 1
+	db 21
+	db 22
+	db 1
+	db 36
+	db 36
+	db 27
+	db 27
+	db 25
+	db 24
+	db 32
+	db 1
+	db 24
+	db 1
+	db 33
+	db 30
+	db 33
+	db 1
+	db 30
+	db 1
+	db 1
+	db 1
+	db 30
+	db 21
+	db 1
+	db 33
+	db 27
+	db 29
+	db 1
+	db 28
+	db 1
+	db 1
+	db 1
+	db 1
+	db 20
+	db 46
+	assert_table_length RANDO_POOL_SIZE
+
+RandoLevelCap::
+	table_width 1
+	db 3
+	db 3
+	db 12
+	db 10
+	db 16
+	db 7
+	db 2
+	db 2
+	db 3
+	db 15
+	db 2
+	db 3
+	db 4
+	db 3
+	db 6
+	db 14
+	db 6
+	db 25
+	db 2
+	db 12
+	db 4
+	db 16
+	db 7
+	db 10
+	db 13
+	db 8
+	db 7
+	db 3
+	db 8
+	db 9
+	db 20
+	db 7
+	db 16
+	db 19
+	db 16
+	db 3
+	db 18
+	db 24
+	db 13
+	db 16
+	db 3
+	db 5
+	db 2
+	db 6
+	db 25
+	db 16
+	db 32
+	db 10
+	db 16
+	db 8
+	db 16
+	db 17
+	db 18
+	db 42
+	db 12
+	db 47
+	db 31
+	db 28
+	db 7
+	db 26
+	db 31
+	db 20
+	db 24
+	db 16
+	db 25
+	db 24
+	db 35
+	db 25
+	db 28
+	db 32
+	db 25
+	db 27
+	db 23
+	db 21
+	db 28
+	db 29
+	db 12
+	db 28
+	db 35
+	db 28
+	db 29
+	db 34
+	db 38
+	db 8
+	db 26
+	db 31
+	db 20
+	db 20
+	db 30
+	db 50
+	db 45
+	db 28
+	db 35
+	db 14
+	db 32
+	db 17
+	db 17
+	db 37
+	db 36
+	db 30
+	db 29
+	db 32
+	db 26
+	db 14
+	db 28
+	db 35
+	db 30
+	db 15
+	db 35
+	db 30
+	db 21
+	db 30
+	db 41
+	db 33
+	db 36
+	db 36
+	db 29
+	db 35
+	db 55
+	db 30
+	db 32
+	db 36
+	db 39
+	db 33
+	db 33
+	db 33
+	db 33
+	db 7
+	db 34
+	db 1
+	db 29
+	db 64
+	db 32
+	db 21
+	db 1
+	db 33
+	db 32
+	db 29
+	db 30
+	db 40
+	db 11
+	db 38
+	db 26
+	db 1
+	db 25
+	db 46
+	assert_table_length RANDO_POOL_SIZE
+
+; What a randomized ground or hidden item may turn into. Key items, HMs
+; and TMs are absent: several key items are plain item balls, and moving
+; those can leave a seed unwinnable.
+RandoItemPool::
+	table_width 1
+	db ANTIDOTE
+	db AWAKENING
+	db CALCIUM
+	db CARBOS
+	db FULL_HEAL
+	db HP_UP
+	db HYPER_BALL
+	db HYPER_POTION
+	db IRON
+	db MASTER_BALL
+	db MAX_ETHER
+	db MAX_POTION
+	db MAX_REVIVE
+	db MOON_STONE
+	db NUGGET
+	db POKE_BALL
+	db POTION
+	db PP_UP
+	db PROTEIN
+	db RARE_CANDY
+	db REVIVE
+	db SUPER_POTION
+	db THUNDER_STONE
+	db X_SPECIAL
+	assert_table_length RANDO_ITEM_POOL_SIZE
 
 ; position in RandoPool for each species index, 255 if not in the pool
 RandoPoolPos::
