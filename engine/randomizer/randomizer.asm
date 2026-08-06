@@ -146,19 +146,46 @@ RandoCopySeedText::
 	pop hl
 	ret
 
-; Writes the seed onto the trainer card, in the gap between the info box and the
-; badge case. Nothing is drawn for a normal game.
+; Adds a row to the trainer card's info box and writes the seed into it, lined
+; up under the name, money and time. Nothing is drawn for a normal game, which
+; keeps the card exactly as it was.
+;
+; The box is grown here rather than by asking for a taller one when it is drawn,
+; because that bank has no room left: its height is shared with the badge case,
+; so parameterising it costs bytes at both call sites. Instead the bottom edge
+; on row 7 is turned back into an interior row and a new edge drawn on row 8,
+; which is the blank spacer above the badges.
 RandoDrawSeedOnCard::
 	call RandoCopySeedText
 	ld a, e
 	and a
 	ret z
-	hlcoord 1, 8
+	hlcoord 0, 7
+	ld [hl], $7c ; left edge
+	inc hl
+	ld c, SCREEN_WIDTH - 2
+	ld a, ' '
+	call .fillRow
+	ld [hl], $78 ; right edge
+	hlcoord 0, 8
+	ld [hl], $7d ; lower left corner
+	inc hl
+	ld c, SCREEN_WIDTH - 2
+	ld a, $77 ; bottom edge
+	call .fillRow
+	ld [hl], $7e ; lower right corner
+	hlcoord 2, 7
 	ld de, .label
 	call PlaceString
-	hlcoord 6, 8
+	hlcoord 7, 7
 	ld de, wStringBuffer
 	jp PlaceString
+
+.fillRow
+	ld [hli], a
+	dec c
+	jr nz, .fillRow
+	ret
 
 .label
 	db "SEED/@"
