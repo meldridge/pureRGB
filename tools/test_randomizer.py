@@ -142,7 +142,10 @@ class Cpu:
         return v
 
     # execution ----------------------------------------------------------
-    def run(self, entry, limit=80_000_000):
+    # Building both maps takes about 400k steps, so anything an order of
+    # magnitude past that is stuck rather than slow -- RandoRandRange spins
+    # forever if it is handed a range of zero. Fail in seconds, not hours.
+    def run(self, entry, limit=5_000_000):
         SENTINEL = 0xF000
         self.pc = entry
         self.push(SENTINEL)
@@ -665,19 +668,31 @@ def item_test(rom, syms, seed, item_pool, index_of_item, check):
                 "CARD_KEY", "S_S_TICKET", "HM_SURF"} & set(item_pool)))
 
 
+def primed(rom, syms, seed, off_flag=None):
+    """A cpu with the maps already built, ready to be reused for lookups.
+
+    Generation dominates the interpreter's runtime, and every routine that
+    reaches a table calls EnsureSpeciesMap, so a fresh cpu per lookup rebuilds
+    both maps every time. Build once and reuse.
+    """
+    bank, entry = syms["EnsureSpeciesMap"]
+    cpu = Cpu(rom, bank)
+    for i, ch in enumerate(b"RAND"):
+        cpu.ram[syms["sRandoMagic"][1] + i] = ch
+    for i in range(4):
+        cpu.ram[syms["sRandoSeed"][1] + i] = (seed >> (8 * i)) & 0xFF
+    if off_flag:
+        cpu.ram[syms["sRandoFlags"][1]] = 1 << RANDO_FLAG_BITS[off_flag]
+    cpu.run(entry)
+    return cpu
+
+
 def tm_test(rom, syms, seeds, check):
     """The tm order must be a permutation, and the gate must switch it off."""
     num_tms = 50
-    tm01 = 0xC9
 
-    def order(seed, off=False):
-        bank, entry = syms["EnsureSpeciesMap"]
-        cpu = Cpu(rom, bank)
-        for i, ch in enumerate(b"RAND"):
-            cpu.ram[syms["sRandoMagic"][1] + i] = ch
-        for i in range(4):
-            cpu.ram[syms["sRandoSeed"][1] + i] = (seed >> (8 * i)) & 0xFF
-        cpu.run(entry)
+    def order(seed):
+        cpu = primed(rom, syms, seed)
         return list(cpu.ram[syms["sRandoTms"][1]:syms["sRandoTms"][1] + num_tms])
 
     orders = {seed: order(seed) for seed in seeds}
@@ -690,26 +705,22 @@ def tm_test(rom, syms, seeds, check):
     check("tms: different seeds give different orders",
           len({tuple(o) for o in orders.values()}) == len(orders))
 
-    def remap(tm_offset, off_flag=None):
-        bank, entry = syms["RandoRemapTm"]
-        cpu = Cpu(rom, bank)
-        for i, ch in enumerate(b"RAND"):
-            cpu.ram[syms["sRandoMagic"][1] + i] = ch
-        for i in range(4):
-            cpu.ram[syms["sRandoSeed"][1] + i] = (seeds[0] >> (8 * i)) & 0xFF
-        if off_flag:
-            cpu.ram[syms["sRandoFlags"][1]] = 1 << RANDO_FLAG_BITS[off_flag]
-        cpu.e = tm_offset
-        cpu.run(entry)
-        return cpu.e
+    def remaps(off_flag=None):
+        cpu = primed(rom, syms, seeds[0], off_flag)
+        entry = syms["RandoRemapTm"][1]
+        out = []
+        for tm in range(num_tms):
+            cpu.e = tm
+            cpu.run(entry)
+            out.append(cpu.e)
+        return out
 
     table = orders[seeds[0]]
-    check("tms: the lookup agrees with the table",
-          all(remap(i) == table[i] for i in range(num_tms)))
+    check("tms: the lookup agrees with the table", remaps() == table)
     check("tms: gate off hands over the same tm",
-          all(remap(i, "FLAG_RANDOM_TMS_OFF") == i for i in range(num_tms)))
+          remaps("FLAG_RANDOM_TMS_OFF") == list(range(num_tms)))
     check("tms: the wild gate does not reach them",
-          all(remap(i, "FLAG_RANDOM_WILD_OFF") == table[i] for i in range(num_tms)))
+          remaps("FLAG_RANDOM_WILD_OFF") == table)
 
 
 def gate_test(rom, syms, seed, species_map, trainer_map, pool, index_of, check):
@@ -718,37 +729,28 @@ def gate_test(rom, syms, seed, species_map, trainer_map, pool, index_of, check):
     The flags are stored inverted -- set means off -- so that a zero byte reads
     as everything on, which is what saves made before they existed hold.
     """
-    def prime(cpu, off_flag):
-        for i, ch in enumerate(b"RAND"):
-            cpu.ram[syms["sRandoMagic"][1] + i] = ch
-        for i in range(4):
-            cpu.ram[syms["sRandoSeed"][1] + i] = (seed >> (8 * i)) & 0xFF
-        if off_flag:
-            cpu.ram[syms["sRandoFlags"][1]] = 1 << RANDO_FLAG_BITS[off_flag]
+    # one primed cpu per flag setting, reused across every lookup
+    cpus = {flag: primed(rom, syms, seed, flag)
+            for flag in (None, "FLAG_RANDOM_WILD_OFF", "FLAG_RANDOM_TRAINERS_OFF",
+                         "FLAG_RANDOM_STARTERS_OFF")}
 
     def wild(species, off_flag=None):
-        bank, entry = syms["ApplyRandoSpecies"]
-        cpu = Cpu(rom, bank)
-        prime(cpu, off_flag)
+        cpu = cpus[off_flag]
         cpu.e = species
-        cpu.run(entry)
+        cpu.run(syms["ApplyRandoSpecies"][1])
         return cpu.e
 
     def trainer(species, off_flag=None):
-        bank, entry = syms["RandoRemapPartySpecies"]
-        cpu = Cpu(rom, bank)
-        prime(cpu, off_flag)
+        cpu = cpus[off_flag]
         cpu.ram[syms["wCurOpponent"][1]] = 0  # not a rival, so the starter carry is off
         cpu.ram[syms["wCurPartySpecies"][1]] = species
-        cpu.run(entry)
+        cpu.run(syms["RandoRemapPartySpecies"][1])
         return cpu.ram[syms["wCurPartySpecies"][1]]
 
     def starter(constant, off_flag=None):
-        bank, entry = syms["RandoStarterSpecies"]
-        cpu = Cpu(rom, bank)
-        prime(cpu, off_flag)
+        cpu = cpus[off_flag]
         cpu.a = constant
-        cpu.run(entry)
+        cpu.run(syms["RandoStarterSpecies"][1])
         return cpu.a
 
     sample = pool[:4] + pool[-4:]
