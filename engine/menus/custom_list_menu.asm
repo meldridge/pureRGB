@@ -250,7 +250,9 @@ GetStartMenuPrompt::
 	jr .copy
 .save
 	CheckEvent EVENT_GOT_POKEDEX
-	ret z ; no change box prompt when no pokedex, cant catch pokemon yet anyway
+	; PureRGBnote: CHANGED: clear rather than return, which used to leave the
+	; previous row's prompt on screen. Only showed once the row above drew one.
+	jr z, .hidePrompt ; no change box prompt when no pokedex, cant catch pokemon yet anyway
 	ld hl, StartSaveBoxPrompt
 	jr .copy
 ; PureRGBnote: ADDED: only a randomizer game has a seed to show. de is the

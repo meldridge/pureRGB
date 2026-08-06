@@ -28,8 +28,21 @@ RedisplayStartMenu::
 	ld a, [wCurrentMenuItem]
 	cp 4 ; are we currently on SAVE menu index?
 	jr z, .continue
-	cp 3 ; PureRGBnote: ADDED: on the player's own row, show the randomizer seed
+;;;;;;;;;; PureRGBnote: ADDED: on the player's own row, show the randomizer seed.
+; Without the pokedex every row below it shifts up one, so the index has to be
+; normalised the way GetStartMenuPrompt does before it can be compared -- the
+; raw index would match SAVE instead. b holds it across the event check, which
+; clobbers a but leaves the flags for the branch below.
+	ld b, a
+	CheckEvent EVENT_GOT_POKEDEX
+	ld a, b
+	jr nz, .indexIsAbsolute
+	inc a
+.indexIsAbsolute
+	cp 3
 	jr z, .showSeed
+	ld a, b
+;;;;;;;;;;
 	cp 2 ; are we on the ITEM index?
 	jr nz, .loop ; if not don't do anything when pressing select
 	; we are on the ITEM index
