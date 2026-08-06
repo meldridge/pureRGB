@@ -233,6 +233,9 @@ GetStartMenuPrompt::
 	jr z, .item
 	cp 4
 	jr z, .save
+	; PureRGBnote: ADDED: the player's own row offers the randomizer seed
+	cp 3
+	jr z, .seed
 .hidePrompt
 	ld h, d
 	ld l, e
@@ -249,6 +252,17 @@ GetStartMenuPrompt::
 	CheckEvent EVENT_GOT_POKEDEX
 	ret z ; no change box prompt when no pokedex, cant catch pokemon yet anyway
 	ld hl, StartSaveBoxPrompt
+	jr .copy
+; PureRGBnote: ADDED: only a randomizer game has a seed to show. de is the
+; destination and RandoEnabledFar answers in e, so it has to be saved.
+.seed
+	push de
+	callfar RandoEnabledFar
+	ld a, e
+	pop de
+	and a
+	jr z, .hidePrompt
+	ld hl, StartSeedPrompt
 .copy
 	ld bc, 6
 	rst _CopyData
@@ -273,6 +287,11 @@ StartSaveBoxPrompt:
 
 StartItemSortPrompt:
 	db $60, $69, $6A, $6B, $6E, $6F
+
+; PureRGBnote: ADDED: shares SORT's first four tiles, since "SEED" and "SORT"
+; open with the same letter and it sits in the tile that ends "SELECT".
+StartSeedPrompt:
+	db $60, $69, $6A, $6B, $76, $77
 
 GetBillsPCMenuPrompt:
 	ld a, [wCurrentMenuItem]

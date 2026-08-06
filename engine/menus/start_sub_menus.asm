@@ -525,7 +525,7 @@ StartMenu_TrainerInfo::
 	ld d, SET_PAL_TRAINER_CARD
 	call RunPaletteCommand
 	call GBPalNormal
-	callfar RandoTrainerCardWait ; PureRGBnote: ADDED: SELECT shows the seed
+	call WaitForTextScrollButtonPress
 	call GBPalWhiteOut
 	call LoadFontTilePatterns
 	call LoadScreenTilesFromBuffer2

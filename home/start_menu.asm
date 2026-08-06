@@ -28,6 +28,8 @@ RedisplayStartMenu::
 	ld a, [wCurrentMenuItem]
 	cp 4 ; are we currently on SAVE menu index?
 	jr z, .continue
+	cp 3 ; PureRGBnote: ADDED: on the player's own row, show the randomizer seed
+	jr z, .showSeed
 	cp 2 ; are we on the ITEM index?
 	jr nz, .loop ; if not don't do anything when pressing select
 	; we are on the ITEM index
@@ -37,6 +39,11 @@ RedisplayStartMenu::
 .continue
 	jp StartMenu_SelectPressed ; we can jp to this since it's in the bank on we loaded at the start of DisplayStartMenu
 ;;;;;;;;;;
+; PureRGBnote: ADDED: the seed does nothing in a normal game, so the routine
+; itself decides whether to draw anything.
+.showSeed
+	callfar RandoShowSeed
+	jp RedisplayStartMenu
 
 StartMenuJumpTable:
 	dw StartMenu_Pokedex

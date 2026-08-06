@@ -63,8 +63,8 @@
 	charmap "<EXTRACLOSEQUOTE>",         $73 ; closing quote ; PureRGBnote: CHANGED: crappier quotation mark 2 (unused)
 	charmap "·",         $74 ; middle dot
 	charmap "…",         $75 ; ellipsis
-	charmap "ぁ",         $76 ; hiragana small a, unused
-	charmap "ぇ",         $77 ; hiragana small e, unused
+	charmap "ぁ",         $76 ; PureRGBnote: CHANGED: reused for the SELECT SEED
+	charmap "ぇ",         $77 ; prompt in gfx/font/font_extra.png
 	charmap "ぉ",         $78 ; hiragana small o, unused
 
 	charmap "┌",         $79

@@ -154,21 +154,16 @@ RandoCopySeedText::
 ; keeps all of this out of the card's own code.
 ;
 ; A normal game gets the vanilla wait and nothing else.
-RandoTrainerCardWait::
+RandoShowSeed::
 	call RandoCopySeedText ; also leaves the seed in wStringBuffer for the text
 	ld a, e
 	and a
-	jp z, WaitForTextScrollButtonPress
-.loop
-	call JoypadLowSensitivity
-	ldh a, [hJoy5]
-	and PAD_A | PAD_B | PAD_SELECT
-	jr z, .loop
-	bit B_PAD_SELECT, a
 	ret z
+	call SaveScreenTilesToBuffer2
 	ld hl, .seedText
 	rst _PrintText
-	ret
+	call LoadScreenTilesFromBuffer2
+	jp UpdateSprites
 
 .seedText
 	text_far _RandomizerSeedText
