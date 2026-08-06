@@ -2580,6 +2580,7 @@ wStatusFlags6:: db
 ; bit 7: used fly out of battle
 wStatusFlags7:: db
 
+; TODO: change to an event?
 ; bit 1: set when you beat Lorelei and reset in Indigo Plateau lobby
 ; the game uses this to tell when Elite 4 events need to be reset
 wElite4Flags:: db
