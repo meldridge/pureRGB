@@ -41,6 +41,13 @@ IF DEF(_DEBUG)
 	ld a, ~(1 << BIT_EARTHBADGE)
 	ld [wObtainedBadges], a
 
+	; PureRGBnote: ADDED: the coin case is an event rather than an item, so set
+	; it and hand over the coins to spend, to make the game corner reachable.
+	SetEvent EVENT_GOT_COIN_CASE
+	ld a, $99 ; BCD, so 9999 coins
+	ld [wPlayerCoins], a
+	ld [wPlayerCoins + 1], a
+
 	call SetDebugNewGameParty
 
 	; Tentacruel gets four HM moves.
