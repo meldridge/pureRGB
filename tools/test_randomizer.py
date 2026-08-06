@@ -584,6 +584,53 @@ def unmap_test(rom, syms, seed, species_map, pool, check):
           all(call(species_map[index_of[p]], True) == index_of[p] for p in prizes))
 
 
+def tm_test(rom, syms, seeds, check):
+    """The tm order must be a permutation, and the gate must switch it off."""
+    num_tms = 50
+    tm01 = 0xC9
+
+    def order(seed, off=False):
+        bank, entry = syms["EnsureSpeciesMap"]
+        cpu = Cpu(rom, bank)
+        for i, ch in enumerate(b"RAND"):
+            cpu.ram[syms["sRandoMagic"][1] + i] = ch
+        for i in range(4):
+            cpu.ram[syms["sRandoSeed"][1] + i] = (seed >> (8 * i)) & 0xFF
+        cpu.run(entry)
+        return list(cpu.ram[syms["sRandoTms"][1]:syms["sRandoTms"][1] + num_tms])
+
+    orders = {seed: order(seed) for seed in seeds}
+    check("tms: a permutation of all 50",
+          all(sorted(o) == list(range(num_tms)) for o in orders.values()),
+          next((f"${s:08X} is not" for s, o in orders.items()
+                if sorted(o) != list(range(num_tms))), ""))
+    check("tms: not the identity",
+          all(any(v != i for i, v in enumerate(o)) for o in orders.values()))
+    check("tms: different seeds give different orders",
+          len({tuple(o) for o in orders.values()}) == len(orders))
+
+    def remap(tm_offset, off_flag=None):
+        bank, entry = syms["RandoRemapTm"]
+        cpu = Cpu(rom, bank)
+        for i, ch in enumerate(b"RAND"):
+            cpu.ram[syms["sRandoMagic"][1] + i] = ch
+        for i in range(4):
+            cpu.ram[syms["sRandoSeed"][1] + i] = (seeds[0] >> (8 * i)) & 0xFF
+        if off_flag:
+            cpu.ram[syms["sRandoFlags"][1]] = 1 << RANDO_FLAG_BITS[off_flag]
+        cpu.e = tm_offset
+        cpu.run(entry)
+        return cpu.e
+
+    table = orders[seeds[0]]
+    check("tms: the lookup agrees with the table",
+          all(remap(i) == table[i] for i in range(num_tms)))
+    check("tms: gate off hands over the same tm",
+          all(remap(i, "FLAG_RANDOM_TMS_OFF") == i for i in range(num_tms)))
+    check("tms: the wild gate does not reach them",
+          all(remap(i, "FLAG_RANDOM_WILD_OFF") == table[i] for i in range(num_tms)))
+
+
 def gate_test(rom, syms, seed, species_map, trainer_map, pool, index_of, check):
     """Each category flag must switch off its own mapping and no other.
 
@@ -993,6 +1040,9 @@ def main():
 
     print("\ninverse lookup (prize king)")
     unmap_test(rom, syms, 0x12345678, maps[0x12345678], pool, check)
+
+    print("\ntm order")
+    tm_test(rom, syms, seeds, check)
 
     print("\ncategory gates")
     gate_test(rom, syms, 0x12345678, maps[0x12345678],

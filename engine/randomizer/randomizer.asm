@@ -570,6 +570,7 @@ GenerateSpeciesMap:
 
 	call ShufflePool
 	call ShuffleWithinWindows
+	call ShuffleTms
 	call HmGuardrail
 	; fall through
 
@@ -617,6 +618,82 @@ RandoStarterSpecies::
 	pop hl
 	pop de
 	pop bc
+	ret
+
+; e = tm number less one, e = the tm handed over in its place.
+; Assumes the caller has already range checked it.
+RandoRemapTm::
+	call RandoSramOn
+	call RandoEnabled
+	jr z, .done
+	ld a, [sRandoFlags]
+	bit FLAG_RANDOM_TMS_OFF % 8, a
+	jr nz, .done
+	push hl
+	push de
+	call EnsureSpeciesMap ; the tm order is built alongside the species tables
+	pop de
+	ld hl, sRandoTms
+	ld d, 0
+	add hl, de
+	ld e, [hl]
+	pop hl
+.done
+	jp RandoSramOff
+
+; Remaps wNamedObjectIndex when it names a tm. The Game Corner draws its prize
+; list from rom, so without this it advertises a tm the counter will not hand
+; over. Anything that is not a tm is left alone.
+RandoRemapNamedTm::
+	ld a, [wNamedObjectIndex]
+	sub TM01
+	cp NUM_TMS
+	ret nc
+	ld e, a
+	push hl
+	call RandoRemapTm
+	pop hl
+	ld a, e
+	add TM01
+	ld [wNamedObjectIndex], a
+	ret
+
+; Builds the tm order: entry n is handed over in place of tm n plus one. A
+; permutation rather than independent draws, so no two sources give the same tm.
+ShuffleTms:
+	ld hl, sRandoTms
+	ld c, 0
+.fill
+	ld a, c
+	ld [hli], a
+	inc c
+	ld a, c
+	cp NUM_TMS
+	jr nz, .fill
+; Fisher-Yates downwards, so every arrangement is equally likely.
+	ld b, NUM_TMS - 1
+.nextSlot
+	ld a, b
+	inc a
+	ld c, a
+	push bc
+	call RandoRandRange
+	pop bc
+	ld hl, sRandoTms
+	ld d, 0
+	ld e, a
+	add hl, de
+	ld c, [hl] ; the range argument is spent, so c is free again
+	push hl
+	ld hl, sRandoTms
+	ld e, b
+	add hl, de
+	ld a, [hl]
+	ld [hl], c
+	pop hl
+	ld [hl], a
+	dec b
+	jr nz, .nextSlot
 	ret
 
 ; Resets sRandoShuffle to the unshuffled pool.

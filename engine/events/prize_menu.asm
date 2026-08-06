@@ -80,18 +80,23 @@ GetPrizeMenuId:
 	ld a, [wWhichPrizeWindow]
 	cp 2 ; is TM_menu?
 	jr nz, .putMonName
+; PureRGBnote: ADDED: randomizer mode, as for the mon windows below. The prize
+; is bought through GiveItem, which swaps the tm, so the list has to agree.
 	ld a, [wPrize1]
 	ld [wNamedObjectIndex], a
+	callfar RandoRemapNamedTm
 	call GetItemName
 	hlcoord 2, 4
 	call PlaceString
 	ld a, [wPrize2]
 	ld [wNamedObjectIndex], a
+	callfar RandoRemapNamedTm
 	call GetItemName
 	hlcoord 2, 6
 	call PlaceString
 	ld a, [wPrize3]
 	ld [wNamedObjectIndex], a
+	callfar RandoRemapNamedTm
 	call GetItemName
 	hlcoord 2, 8
 	call PlaceString
@@ -182,7 +187,14 @@ HandlePrizeChoice:
 	ld a, [wWhichPrizeWindow]
 	cp 2 ; is prize a TM?
 	jr nz, .getMonName
+; PureRGBnote: ADDED: randomizer mode. Name the tm that will arrive, then put the
+; slot's own back: GiveItem does the swap itself and would otherwise do it twice.
+	ld a, [wNamedObjectIndex]
+	push af
+	callfar RandoRemapNamedTm
 	call GetItemName
+	pop af
+	ld [wNamedObjectIndex], a
 	jr .givePrize
 .getMonName
 ; PureRGBnote: ADDED: randomizer mode. Name the mon the seed will hand over, then
