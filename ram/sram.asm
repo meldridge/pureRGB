@@ -52,9 +52,6 @@ sRandoHmMask:: db
 sRandoAnchorNext:: db
 sRandoPI:: db
 sRandoPJ:: db
-; Set while the opposing team permutation is being built, which is exempt from
-; the level rule: its mons are fought rather than held.
-sRandoTrainerPass:: db
 ; The settings this game was started with, so the options page cannot alter a
 ; world already in progress. Zero on saves made before this existed, which reads
 ; as every category on: what those games were generated with.

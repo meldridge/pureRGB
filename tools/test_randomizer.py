@@ -421,8 +421,7 @@ def parse_pool():
                 sections[current].append(v)  # item constants, kept as names
     return (sections["RandoPool"], sections["RandoWindowLo"],
             sections["RandoWindowHi"], sections["RandoHmLearners"],
-            sections["RandoAnchors"], sections["RandoMinLevel"],
-            sections["RandoLevelCap"], sections["RandoItemPool"])
+            sections["RandoAnchors"], sections["RandoItemPool"])
 
 
 def generate(rom, syms, seed):
@@ -834,8 +833,7 @@ def main():
     sym_path = rom_path.with_suffix(".sym")
     rom = rom_path.read_bytes()
     syms = load_symbols(sym_path)
-    (pool, win_lo, win_hi, hm_learners, anchors,
-     min_level, level_cap, item_pool) = parse_pool()
+    pool, win_lo, win_hi, hm_learners, anchors, item_pool = parse_pool()
     poolset = set(pool)
     pos_of = {s: i for i, s in enumerate(pool)}
 
@@ -843,9 +841,6 @@ def main():
         """The replacement must sit inside the original position's window."""
         return win_lo[pos_of[original]] <= pos_of[replacement] <= win_hi[pos_of[original]]
 
-    def level_ok(original, replacement):
-        """The replacement must be able to exist at the level the slot is caught at."""
-        return min_level[pos_of[replacement]] <= level_cap[pos_of[original]]
 
     sys.path.insert(0, str(ROOT / "tools"))
     from generate_species_pool import parse_species_constants, LEGENDARY_DEX
@@ -879,12 +874,6 @@ def main():
         check("no value outside pool", all(v in poolset for v in images))
         check("replacement within base-stat window",
               all(in_window(s, m[s]) for s in pool))
-        check("replacement can exist at the level it is caught at",
-              all(level_ok(s, m[s]) for s in pool),
-              next((f"{name_of[m[s]]} cannot exist below "
-                    f"{min_level[pos_of[m[s]]]} but replaces {name_of[s]}, "
-                    f"caught at {level_cap[pos_of[s]]}"
-                    for s in pool if not level_ok(s, m[s])), ""))
         non_pool = [i for i in range(1, 191) if i not in poolset]
         check("non-pool species map to themselves", all(m[i] == i for i in non_pool))
         check("not the identity permutation", any(m[s] != s for s in pool),
@@ -898,11 +887,6 @@ def main():
               sorted(mt[s] for s in pool) == sorted(pool))
         check("trainer table respects the window",
               all(in_window(s, mt[s]) for s in pool))
-        # Opposing teams are deliberately exempt from the level rule, so this is
-        # the check that the exemption is real rather than dead code.
-        check("trainer table is not bound by the level rule",
-              any(not level_ok(s, mt[s]) for s in pool),
-              "no opposing team mon fell outside it, so the exemption is untested")
         check("trainer table differs from the wild one",
               sum(1 for s in pool if mt[s] != m[s]) > len(pool) // 2,
               f"only {sum(1 for s in pool if mt[s] != m[s])} of {len(pool)} differ")
@@ -921,8 +905,6 @@ def main():
             sweep_fail.append((seed, "not a bijection"))
         if any(not in_window(s, m[s]) for s in pool):
             sweep_fail.append((seed, "left its window"))
-        if any(not level_ok(s, m[s]) for s in pool):
-            sweep_fail.append((seed, "broke the level rule"))
         for bit, move in enumerate(("CUT", "SURF", "STRENGTH")):
             if not any(hm_learners[m[pool[p]]] & (1 << bit) for p in anchors):
                 sweep_fail.append((seed, f"no {move} user"))

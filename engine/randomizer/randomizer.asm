@@ -552,8 +552,6 @@ GenerateSpeciesMap:
 ; aside, then the wild one is built in place from where the generator had got
 ; to, which is what makes the two disagree. Only the wild table gets the
 ; guardrail, since it decides what is catchable.
-	ld a, 1
-	ld [sRandoTrainerPass], a
 	call ShufflePool
 	call ShuffleWithinWindows
 	ld hl, sRandoShuffle
@@ -561,8 +559,6 @@ GenerateSpeciesMap:
 	ld c, RANDO_POOL_SIZE
 	call RandoCopyBytes
 
-	xor a
-	ld [sRandoTrainerPass], a
 	call ShufflePool
 	call ShuffleWithinWindows
 	call HmGuardrail
@@ -818,12 +814,12 @@ TryWindowSwap:
 	ld a, [sRandoPI]
 	ld b, a
 	ld a, [sRandoJ]
-	call FitsSlot
+	call FitsWindow
 	ret nc
 	ld a, [sRandoPJ]
 	ld b, a
 	ld a, [sRandoI]
-	call FitsSlot
+	call FitsWindow
 	ret nc
 	jp SwapShuffleEntries
 
@@ -860,41 +856,6 @@ OccupantOrigPos:
 	ld e, a
 	add hl, de
 	ld a, [hl]
-	ret
-
-; a = target position, b = pool position of the species. Carry if that species
-; may stand in there: inside the slot's base stat window, and able to exist at
-; the level it is caught at. Opposing teams are exempt from the level rule, as
-; their mons are fought rather than held.
-; bit rather than and, so FitsWindow's carry survives the test.
-FitsSlot:
-	ld c, a
-	call FitsWindow
-	ret nc
-	ld a, [sRandoTrainerPass]
-	bit 0, a
-	ld a, c
-	ret nz
-	; fall through
-
-; a = target position, b = pool position of the species. Carry if the species
-; could legitimately be held at the lowest level that slot is caught at, which
-; is what keeps a level 3 Kakuna off Route 1.
-FitsLevel:
-	ld d, 0
-	ld e, a
-	ld hl, RandoLevelCap
-	add hl, de
-	ld a, [hl]
-	ld e, b
-	ld hl, RandoMinLevel
-	add hl, de
-	cp [hl]
-	jr c, .no
-	scf
-	ret
-.no
-	and a
 	ret
 
 ; a = target position, b = pool position of the species. Carry if it fits.

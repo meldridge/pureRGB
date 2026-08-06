@@ -31,10 +31,9 @@ ROOT = Path(__file__).resolve().parent.parent
 BST_TOLERANCE = 0.10
 
 # The tolerance is proportional, so at the ends of the range it reaches very few
-# species: unwidened, the five weakest only ever swap among each other, and once
-# the level rule rules out the ones that evolve, Caterpie is left with three
-# candidates. Widening applies only where the tolerance falls short of this, so
-# the middle of the pool is untouched.
+# species: unwidened, the five weakest only ever swap among each other, which
+# reads as the randomizer having done nothing. Widening applies only where the
+# tolerance falls short of this, leaving the middle of the pool untouched.
 MIN_WINDOW = 16
 
 # Dex numbers the Universal Pokemon Randomizer treats as legendary. Kept out of
@@ -45,8 +44,6 @@ CONSTANTS = ROOT / "constants/pokemon_constants.asm"
 DEX_ORDER = ROOT / "data/pokemon/dex_order.asm"
 BASE_STATS = ROOT / "data/pokemon/base_stats.asm"
 EVOS_MOVES = ROOT / "data/pokemon/evos_moves.asm"
-WILD_MAPS = ROOT / "data/wild/maps"
-ROD_TABLES = (ROOT / "data/wild/good_rod.asm", ROOT / "data/wild/super_rod.asm")
 ITEM_ASSIGNMENTS = ROOT / "data/maps/items/item_location_assignments.asm"
 KEY_ITEMS = ROOT / "data/items/key_items.asm"
 TYPE_MATCHUPS = ROOT / "data/types/type_matchups.asm"
@@ -225,101 +222,8 @@ def parse_evolutions():
     return evolves
 
 
-def parse_evolution_levels(flat_to_name):
-    """(pre-evolution, evolved form, level) for every evolution route.
-
-    Item and trade evolutions carry a min level of 1, so they contribute no
-    level of their own. A species can have more than one route in -- pureRGB
-    gives Gengar a level 37 alternative to the trade -- and each is its own edge.
-    """
-    edges, current = [], None
-    for line in EVOS_MOVES.read_text().splitlines():
-        line = line.split(";")[0].strip()
-        m = re.match(r"^(\w+)EvosMoves:", line)
-        if m:
-            current = flat_to_name.get(m.group(1).upper())
-            continue
-        if current is None:
-            continue
-        if line.startswith("db EVOLVE_LEVEL"):
-            fields = [f.strip() for f in line.split(",")]
-            edges.append((current, fields[-1], int(fields[1])))
-        elif line.startswith("db EVOLVE"):
-            edges.append((current, line.split(",")[-1].strip(), 1))
-        elif line == "db 0":
-            current = None
-    return edges
 
 
-def compute_min_levels(edges, names):
-    """Species constant -> the earliest level it could legitimately be held at.
-
-    A base form is 1. An evolved form is the higher of its pre-evolution's floor
-    and its own evolution level, minimised over every route in. Iterated to a
-    fixed point, since one stage's floor depends on the stage before it.
-    """
-    routes = {}
-    for src, dst, level in edges:
-        routes.setdefault(dst, []).append((src, level))
-    min_level = {name: 1 for name in names}
-    for _ in range(len(min_level)):
-        changed = False
-        for dst, ways in routes.items():
-            if dst not in min_level:
-                continue
-            best = min(max(min_level.get(src, 1), lvl) for src, lvl in ways)
-            if best > min_level[dst]:
-                min_level[dst] = best
-                changed = True
-        if not changed:
-            break
-    return min_level
-
-
-def strip_debug(text):
-    """Drop the _DEBUG arm of a conditional so only the real data is read."""
-    out, skip = [], False
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("IF DEF(_DEBUG)"):
-            skip = True
-        elif stripped in ("ELSE", "ENDC"):
-            skip = False
-        elif not skip:
-            out.append(line)
-    return "\n".join(out)
-
-
-def parse_encounter_levels():
-    """Species constant -> the lowest level it can be caught at.
-
-    Grass, water and both rods. Trainer parties are deliberately absent: their
-    mons are fought rather than obtained, so nothing there has to be a level the
-    player could legitimately hold. Statics and gifts set their level in scripts
-    and are not read; each sits at or above the wild floor for the same species,
-    so none would lower a cap.
-    """
-    wild = {}
-
-    def note(species, level):
-        if 0 < level <= 100 and level < wild.get(species, 101):
-            wild[species] = level
-
-    for path in sorted(WILD_MAPS.glob("*.asm")):
-        text = strip_debug(path.read_text())
-        for kind in ("grass", "water"):
-            block = r"def_%s_wildmons (\d+)(.*?)end_%s_wildmons" % (kind, kind)
-            for m in re.finditer(block, text, re.S):
-                if int(m.group(1)) == 0:
-                    continue  # encounter rate zero, so these slots never come up
-                for level, species in re.findall(r"db\s+(\d+)\s*,\s*(\w+)", m.group(2)):
-                    note(species, int(level))
-
-    for path in ROD_TABLES:
-        for level, species in re.findall(r"db\s+(\d+)\s*,\s*(\w+)", path.read_text()):
-            note(species, int(level))
-
-    return wild
 
 
 def parse_key_items():
@@ -557,33 +461,6 @@ def main():
     print(f"window sizes: min {min(widths)}, max {max(widths)}, "
           f"mean {sum(widths) / n:.1f}")
 
-    # A replacement may only stand in where it could legitimately exist: the
-    # earliest level it can be held at must be at or under the lowest level the
-    # species it replaces is ever met at. Capping at the floor keeps identity
-    # legal for every slot, so a valid permutation always exists.
-    flat_to_name = {flatten(name): name for name in names_to_index}
-    min_levels = compute_min_levels(
-        parse_evolution_levels(flat_to_name), names_to_index)
-    wild_low = parse_encounter_levels()
-    min_level_table, level_cap_table = [], []
-    for _, name, _ in pool:
-        floor = min_levels.get(name, 1)
-        min_level_table.append(floor)
-        # Flooring the cap at the species' own minimum keeps identity legal for
-        # every slot, so the shuffle can never be handed one nothing can fill.
-        level_cap_table.append(max(floor, wild_low.get(name, floor)))
-
-    legal = [sum(1 for i in range(n)
-                 if min_level_table[i] <= level_cap_table[j]
-                 and window_lo[j] <= i <= window_hi[j])
-             for j in range(n)]
-    assert min(legal) > 1, \
-        f"nothing but itself can fill {pool[legal.index(min(legal))][1]}'s slot"
-    print(f"level floors: {min(min_level_table)}..{max(min_level_table)}, "
-          f"caps: {min(level_cap_table)}..{max(level_cap_table)}, "
-          f"legal partners: {min(legal)}..{max(legal)} (median "
-          f"{sorted(legal)[n // 2]})")
-
     item_pool = build_item_pool()
     leaked = [i for i in item_pool
               if i in parse_key_items() or re.match(r"^(TM|HM)\d", i)]
@@ -615,16 +492,6 @@ def main():
         lines += [f"{label}::", "\ttable_width 1"]
         lines += [f"\tdb {v}" for v in table]
         lines += [f"\tassert_table_length RANDO_POOL_SIZE", ""]
-
-    # A wild swap is only legal when the incoming mon's floor is at or under the
-    # slot's cap, which is what keeps a level 3 Kakuna out of Route 1. Opposing
-    # teams are exempt: their mons are fought, never held, so no level there has
-    # to be one the player could have reached.
-    for label, table in (("RandoMinLevel", min_level_table),
-                         ("RandoLevelCap", level_cap_table)):
-        lines += [f"{label}::", "\ttable_width 1"]
-        lines += [f"\tdb {v}" for v in table]
-        lines += ["\tassert_table_length RANDO_POOL_SIZE", ""]
 
     lines += [
         "; What a randomized ground or hidden item may turn into. Key items, HMs",
