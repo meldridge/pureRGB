@@ -753,6 +753,27 @@ def options_row_test(check):
     check("seed screen: hint fits before the entry field", len(hint) <= 9,
           f'"{hint}" is {len(hint)} chars, only 9 columns are free')
 
+    # The Game Corner draws its prize list from ROM rather than through
+    # _GivePokemon, so each displayed name needs its own remap. wPrize1-3 must
+    # stay vanilla: the price and the level are keyed to the slot's own species.
+    prizes = (ROOT / "engine/events/prize_menu.asm").read_text()
+    menu = re.split(r"^\.putMonName", prizes, flags=re.M)[1].split(".putNoThanksText")[0]
+    check("prizes: all three menu names are remapped",
+          menu.count("RandoRemapNamedWild") == 3,
+          f"{menu.count('RandoRemapNamedWild')} of 3 names remapped")
+    check("prizes: menu leaves wPrize1-3 vanilla",
+          not re.search(r"ld\s+\[wPrize[123]\]", prizes),
+          "something writes back to a wPrize slot")
+
+    # The confirm prompt names the remapped mon but must hand the slot's own
+    # species to GetPrizeMonLevel, which has no terminator to stop a bad key.
+    confirm = re.split(r"^\.getMonName", prizes, flags=re.M)[1].split(".givePrize")[0]
+    check("prizes: confirm prompt restores the vanilla species",
+          "RandoRemapNamedWild" in confirm
+          and confirm.rindex("ld [wNamedObjectIndex], a")
+              > confirm.index("RandoRemapNamedWild"),
+          "wNamedObjectIndex is left remapped for the level lookup")
+
 
 def main():
     rom_path = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "pokered.gbc"

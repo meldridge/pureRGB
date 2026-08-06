@@ -97,18 +97,23 @@ GetPrizeMenuId:
 	call PlaceString
 	jr .putNoThanksText
 .putMonName
+; PureRGBnote: ADDED: randomizer mode. wPrize1-3 stay vanilla so the price and
+; level stay attached to the slot; only the displayed name moves with the seed.
 	ld a, [wPrize1]
 	ld [wNamedObjectIndex], a
+	callfar RandoRemapNamedWild
 	call GetMonName
 	hlcoord 2, 4
 	call PlaceString
 	ld a, [wPrize2]
 	ld [wNamedObjectIndex], a
+	callfar RandoRemapNamedWild
 	call GetMonName
 	hlcoord 2, 6
 	call PlaceString
 	ld a, [wPrize3]
 	ld [wNamedObjectIndex], a
+	callfar RandoRemapNamedWild
 	call GetMonName
 	hlcoord 2, 8
 	call PlaceString
@@ -180,7 +185,14 @@ HandlePrizeChoice:
 	call GetItemName
 	jr .givePrize
 .getMonName
+; PureRGBnote: ADDED: randomizer mode. Name the mon the seed will hand over, then
+; restore the slot's own species for GetPrizeMonLevel below.
+	ld a, [wNamedObjectIndex]
+	push af
+	callfar RandoRemapNamedWild
 	call GetMonName
+	pop af
+	ld [wNamedObjectIndex], a
 .givePrize
 	ld hl, SoYouWantPrizeText
 	rst _PrintText

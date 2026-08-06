@@ -251,6 +251,21 @@ RandoRemapNamedObject::
 .done
 	jp RandoSramOff
 
+; As above, but through the wild table, for a name shown for something the player
+; is about to be given. The Game Corner draws its prize list straight from ROM,
+; so without this the menu advertises a mon the seed will not hand over.
+RandoRemapNamedWild::
+	call RandoSramOn
+	call RandoEnabled
+	jr z, .done
+	ld a, [wNamedObjectIndex]
+	ld e, a
+	call RandoMapSpecies
+	ld a, e
+	ld [wNamedObjectIndex], a
+.done
+	jp RandoSramOff
+
 ; Remaps the starter being shown and given in Oak's Lab.
 ; wPlayerStarter and wRivalStarter are left holding the original constants:
 ; StarterToPartyID identifies a rival party by comparing against them, so they
