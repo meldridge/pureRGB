@@ -222,8 +222,7 @@ CheckArenaAssistantWalking:
 	CheckEvent EVENT_ARENA_ASSISTANT_WALKING
 	ret z
 	call DisableAllJoypad
-	ld a, [wStatusFlags5]
-	bit BIT_SCRIPTED_NPC_MOVEMENT, a
+	call IsNPCAutoMoving
 	ret nz
 	ResetEvent EVENT_ARENA_ASSISTANT_WALKING
 	call EnableAllJoypad

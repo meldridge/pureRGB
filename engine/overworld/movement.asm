@@ -870,8 +870,7 @@ DoScriptedNPCMovement:
 ; a few times in the game. It is used when the NPC and player must walk together
 ; in sync, such as when the player is following the NPC somewhere. An NPC can't
 ; be moved in sync with the player using the other method.
-	ld a, [wStatusFlags5]
-	bit BIT_SCRIPTED_MOVEMENT_STATE, a
+	call IsPlayerAutoMoving
 	ret z
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; shinpokerednote: 60fps - update animations every other frame and halve movement
