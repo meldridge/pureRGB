@@ -537,17 +537,11 @@ ShowNextMoveData:
 	ld d, 0
 	add hl, de
 	add hl, de
-	ld a, [hli]
-	ld e, a
-	ld d, [hl] ; de = address of movedex entry
-
-	ld h, d
-	ld l, e
-	bccoord 1, 11
+	de_deref
+	; de = which movedex text to print (address in the movedex_text.asm bank)
 	ld a, %10
 	ldh [hClearLetterPrintingDelayFlags], a
-
-	call TextCommandProcessor ; print movedex description text
+	callfar PrintMovedexText ; print movedex description text
 	ld a, [wMenuWatchedKeys]
 	ld c, a
 	ldh a, [hJoy5]

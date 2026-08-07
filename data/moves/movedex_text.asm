@@ -1,5 +1,12 @@
 ; PureRGBnote: ADDED: text pointers for the descriptions that show up in the movedex.
 
+; input de = which text below to print
+PrintMovedexText::
+	ld h, d
+	ld l, e
+	bccoord 1, 11
+	jp TextCommandProcessor
+
 _PoundDexEntry::
 	text "Pounds the foe"
 	next "with a leg, tail"
