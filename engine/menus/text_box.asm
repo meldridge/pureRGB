@@ -211,6 +211,7 @@ DoBuySellQuitMenu:
 ; hl = address where the text box border should be drawn
 DisplayTwoOptionMenu:
 	push hl
+	push hl
 	call DisableTextDelay
 
 ; pointless because both values are overwritten before they are read
@@ -229,7 +230,6 @@ DisplayTwoOptionMenu:
 	xor a
 	ld [wLastMenuItem], a
 	ld [wMenuWatchMovingOutOfBounds], a
-	push hl
 	ld hl, wTwoOptionMenuID
 	bit BIT_SECOND_MENU_OPTION_DEFAULT, [hl]
 	res BIT_SECOND_MENU_OPTION_DEFAULT, [hl]
