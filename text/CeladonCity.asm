@@ -199,11 +199,7 @@ _CeladonCitySignText::
 	done
 
 _CeladonCityGymSignText::
-	text "CELADON CITY"
-	line "#MON GYM"
-	cont "LEADER: ERIKA"
-
-	para "The Nature Loving"
+	text "The Nature Loving"
 	line "Princess!"
 	done
 

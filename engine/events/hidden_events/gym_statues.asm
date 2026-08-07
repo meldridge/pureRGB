@@ -45,8 +45,9 @@ GymStatueTextScript::
 ; this was refactored from some free wram space.
 
 GetStatueNames:
-	ld hl, StatueTextMap
 	ld a, [wCurMap]
+GetArbitraryStatueNames:
+	ld hl, StatueTextMap
 	ld de, 4
 	call IsInArray
 	ret nc
@@ -81,3 +82,46 @@ StatueTextMap::
 	dwb CinnabarIslandName, BLAINE
 	db VIRIDIAN_GYM
 	dwb ViridianCityName, GIOVANNI
+
+
+GymOutsideSignTextScript::
+	push de
+	ld a, c
+	call GetArbitraryStatueNames
+	ld hl, .genericGymSignText
+	rst _PrintText
+	pop hl
+	rst _PrintText
+	rst TextScriptEnd
+.genericGymSignText
+	text_far _GymSignGenericText
+	text_promptbutton
+	text_end
+
+PewterGymOutsideSign::
+	text_far _PewterCityGymSignText
+	text_end
+
+CeruleanGymOutsideSign::
+	text_far _CeruleanCityGymSign
+	text_end
+
+VermilionGymOutsideSign::
+	text_far _VermilionCityGymSignText
+	text_end
+
+CeladonGymOutsideSign::
+	text_far _CeladonCityGymSignText
+	text_end
+	
+FuchsiaGymOutsideSign::
+	text_far _FuchsiaCityGymSignText
+	text_end
+
+SaffronGymOutsideSign::
+	text_far _SaffronCityGymSignText
+	text_end
+
+CinnabarGymOutsideSign::
+	text_far _CinnabarIslandGymSignText
+	text_end

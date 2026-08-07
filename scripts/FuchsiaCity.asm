@@ -253,8 +253,10 @@ FuchsiaCitySafariZoneSignText:
 	text_end
 
 FuchsiaCityGymSignText:
-	text_far _FuchsiaCityGymSignText
-	text_end
+	text_asm
+	ld c, FUCHSIA_GYM
+	ld de, FuchsiaGymOutsideSign
+	jpfar GymOutsideSignTextScript
 
 FuchsiaCitySoMuchInfoText:
 	text_far _FuchsiaCitySoMuchInfo

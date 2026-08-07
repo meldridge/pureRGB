@@ -245,11 +245,7 @@ _CeruleanCityBikeShopSign::
 	done
 
 _CeruleanCityGymSign::
-	text "CERULEAN CITY"
-	line "#MON GYM"
-	cont "LEADER: MISTY"
-
-	para "The Tomboyish"
+	text "The Tomboyish"
 	line "Mermaid!"
 	done
 

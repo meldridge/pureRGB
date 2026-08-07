@@ -121,11 +121,7 @@ _VermilionCityPokemonFanClubSignText::
 	done
 
 _VermilionCityGymSignText::
-	text "VERMILION CITY"
-	line "#MON GYM"
-	cont "LEADER: LT.SURGE"
-
-	para "The Lightning"
+	text "The Lightning"
 	line "American!"
 	done
 

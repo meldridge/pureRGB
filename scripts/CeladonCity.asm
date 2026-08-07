@@ -307,9 +307,11 @@ CeladonCitySignText:
 ;;;;;
 
 CeladonCityGymSignText:
-	text_far _CeladonCityGymSignText
-	text_end
-
+	text_asm
+	ld c, CELADON_GYM
+	ld de, CeladonGymOutsideSign
+	jpfar GymOutsideSignTextScript
+	
 CeladonCityMansionSignText:
 	text_far _CeladonCityMansionSignText
 	text_end

@@ -345,8 +345,10 @@ VermilionCityPokemonFanClubSignText:
 	text_end
 
 VermilionCityGymSignText:
-	text_far _VermilionCityGymSignText
-	text_end
+	text_asm
+	ld c, VERMILION_GYM
+	ld de, VermilionGymOutsideSign
+	jpfar GymOutsideSignTextScript
 
 VermilionCityHarborSignText:
 	text_far _VermilionCityHarborSignText

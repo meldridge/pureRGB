@@ -58,11 +58,7 @@ _FuchsiaCitySafariZoneSignText::
 	done
 
 _FuchsiaCityGymSignText::
-	text "FUCHSIA CITY"
-	line "#MON GYM"
-	cont "LEADER: KOGA"
-
-	para "The Poisonous"
+	text "The Poisonous"
 	line "Ninja Master"
 	done
 

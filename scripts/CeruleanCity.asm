@@ -500,5 +500,7 @@ CeruleanCityBikeShopSign:
 	text_end
 
 CeruleanCityGymSign:
-	text_far _CeruleanCityGymSign
-	text_end
+	text_asm
+	ld c, CERULEAN_GYM
+	ld de, CeruleanGymOutsideSign
+	jpfar GymOutsideSignTextScript

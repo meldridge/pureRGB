@@ -114,5 +114,7 @@ CinnabarIslandPokemonLabSignText:
 	text_end
 
 CinnabarIslandGymSignText:
-	text_far _CinnabarIslandGymSignText
-	text_end
+	text_asm
+	ld c, CINNABAR_GYM
+	ld de, CinnabarGymOutsideSign
+	jpfar GymOutsideSignTextScript

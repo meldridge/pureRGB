@@ -130,15 +130,19 @@ _DexRatingText::
 	text "#DEX Rating<COLON>"
 	done
 
-_GymStatueText::
+_GymSignGenericCallText::
+	db "@"
+_GymSignGenericText::
 	text_ram_stringbuffer
 	text_start
 	line "#MON GYM"
 	cont "LEADER: @"
 	text_ram_namebuffer
-	text_start
+	text_end
 
-	para "WINNING <TRAINER>S:@"
+_GymStatueText::
+	text_call _GymSignGenericCallText
+	text "<PARA>WINNING <TRAINER>S:@"
 	text_end
 
 _GymStatueRival::

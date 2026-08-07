@@ -308,8 +308,10 @@ PewterCityMuseumSignText:
 	text_end
 
 PewterCityGymSignText:
-	text_far _PewterCityGymSignText
-	text_end
+	text_asm
+	ld c, PEWTER_GYM
+	ld de, PewterGymOutsideSign
+	jpfar GymOutsideSignTextScript
 
 PewterCitySignText:
 	text_far _PewterCitySignText

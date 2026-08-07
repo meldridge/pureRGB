@@ -117,8 +117,10 @@ SaffronCityFightingDojoSignText:
 	text_end
 
 SaffronCityGymSignText:
-	text_far _SaffronCityGymSignText
-	text_end
+	text_asm
+	ld c, SAFFRON_GYM
+	ld de, SaffronGymOutsideSign
+	jpfar GymOutsideSignTextScript
 
 SaffronCityTrainerTips1Text:
 	text_far _SaffronCityTrainerTips1Text
