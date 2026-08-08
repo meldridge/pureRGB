@@ -289,7 +289,10 @@ OaksLabChoseStarterScript:
 	ret
 
 OaksLabRivalChoosesStarterScript:
-	call IsPlayerAutoMoving
+	; PureRGBnote: FIXED: this waits on scripted NPC movement, bit 0, so it needs
+	; IsNPCAutoMoving. IsPlayerAutoMoving reads bit 7, which let the script run
+	; while the rival was still walking to his ball.
+	call IsNPCAutoMoving
 	ret nz
 	call OaksLabDisableAllJoypadExceptAorB
 	ld a, OAKSLAB_RIVAL
