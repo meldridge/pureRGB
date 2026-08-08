@@ -688,6 +688,53 @@ def primed(rom, syms, seed, off_flag=None):
     return cpu
 
 
+def palette_test(rom, syms, seed, check):
+    """Alt palette flags are rerolled per map, in two stages.
+
+    A map picks a density, then each of its 24 encounter slots rolls against it.
+    The table is fitted to the hand placed data, so the totals should land near
+    it: 44% of maps plain, about 17% of slots flagged overall.
+    """
+    bank, entry = syms["RandoRollWildPalettes"]
+    flags = syms["wWildMonPalettes"][1]
+
+    def roll(cur_map, off_flag=None):
+        cpu = Cpu(rom, bank)
+        for i, ch in enumerate(b"RAND"):
+            cpu.ram[syms["sRandoMagic"][1] + i] = ch
+        for i in range(4):
+            cpu.ram[syms["sRandoSeed"][1] + i] = (seed >> (8 * i)) & 0xFF
+        if off_flag:
+            cpu.ram[syms["sRandoFlags"][1]] = 1 << RANDO_FLAG_BITS[off_flag]
+        cpu.ram[syms["wCurMap"][1]] = cur_map
+        cpu.ram[flags:flags + 3] = b"\xAB\xCD\xEF"  # must be overwritten
+        cpu.run(entry)
+        return bytes(cpu.ram[flags:flags + 3])
+
+    maps = [roll(m) for m in range(68)]
+    bits = [sum(bin(b).count("1") for b in m) for m in maps]
+    plain = sum(1 for b in bits if b == 0)
+    density = sum(bits) / (24 * len(bits))
+
+    check("palettes: a map always rolls the same flags",
+          roll(12) == roll(12))
+    check("palettes: different maps differ",
+          len({m for m in maps}) > len(maps) // 2,
+          f"only {len({m for m in maps})} distinct across {len(maps)} maps")
+    # the table has 7 of 16 entries at "never", and a sparse map can roll no
+    # slots by chance, so the plain share sits at or a little above 44%
+    check("palettes: plain maps land near the 44% the table asks for",
+          0.30 <= plain / len(maps) <= 0.62,
+          f"{plain} of {len(maps)} plain")
+    check("palettes: overall density lands near 17%",
+          0.10 <= density <= 0.26, f"{density:.1%}")
+    check("palettes: some map comes out heavily coloured",
+          max(bits) >= 12, f"densest map has {max(bits)} of 24")
+    check("palettes: the wild gate switches it off",
+          roll(12, "FLAG_RANDOM_WILD_OFF") == b"\xAB\xCD\xEF",
+          "flags were rerolled with wild randomization off")
+
+
 def tm_test(rom, syms, seeds, check):
     """The tm order must be a permutation, and the gate must switch it off."""
     num_tms = 50
@@ -1167,6 +1214,9 @@ def main():
 
     print("\nground and hidden items")
     item_test(rom, syms, 0x12345678, item_pool, parse_item_constants(), check)
+
+    print("\nwild alt palettes")
+    palette_test(rom, syms, 0x12345678, check)
 
     print("\ntm order")
     tm_test(rom, syms, seeds, check)

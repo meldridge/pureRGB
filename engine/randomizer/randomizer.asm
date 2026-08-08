@@ -382,6 +382,88 @@ RandoRemapStarters::
 	ld [wPokedexNum], a
 	ret
 
+; How thickly alternate palettes are spread on one map: a 1 in N chance per
+; encounter slot, or never at all. Fitted to the hand placed data rather than
+; picked -- 7 of 16 never, one in 16 wall to wall, mean 17% -- so a seed carries
+; about as much colour as the game does, somewhere else.
+RandoPaletteDensity:
+	db 0, 0, 0, 0, 0, 0, 0, 12, 8, 8, 8, 6, 4, 3, 2, 1
+DEF RANDO_PALETTE_DENSITIES EQU 16
+
+; Rerolls wWildMonPalettes once GetWildPokemonPalettes has copied in the hand
+; placed flags. The bits are positional -- slot 0-9 grass, 10-19 water, 20-23
+; super rod -- so they land on whatever the shuffle put in each slot.
+;
+; A pure function of the seed and the map, so a route looks the same on every
+; visit. Nothing gates on the player's alternate palette option: the palette
+; lookup already checks it, and rolling regardless keeps a route stable if they
+; switch it on part way through.
+RandoRollWildPalettes::
+	call RandoSramOn
+	call RandoEnabled
+	jr z, .done
+	ld a, [sRandoFlags]
+	bit FLAG_RANDOM_WILD_OFF % 8, a
+	jr nz, .done
+	ld hl, sRandoSeed
+	ld de, sRandoRngState
+	ld c, 4
+	call RandoCopyBytes
+	ld hl, sRandoRngState
+	ld a, [wCurMap]
+	xor [hl]
+	ld [hli], a
+	ld a, [hl]
+	xor $A5 ; keeps this clear of the item roll's key space
+	ld [hl], a
+	call RandoRand
+	call RandoRand
+	ld c, RANDO_PALETTE_DENSITIES
+	call RandoRandRange
+	ld hl, RandoPaletteDensity
+	ld d, 0
+	ld e, a
+	add hl, de
+	ld a, [hl]
+	and a
+	jr z, .plain
+	ld [sRandoLo], a ; this map's divisor, read again for every slot
+	ld hl, wWildMonPalettes
+	ld b, 3
+.nextByte
+	ld c, 8
+	ld d, 0
+.nextBit
+	push hl
+	push bc
+	push de
+	ld a, [sRandoLo]
+	ld c, a
+	call RandoRandRange
+	pop de
+	pop bc
+	pop hl
+	and a ; zero is the one outcome in N that marks a slot, and clears carry
+	jr nz, .gotBit
+	scf
+.gotBit
+	rl d
+	dec c
+	jr nz, .nextBit
+	ld a, d
+	ld [hli], a
+	dec b
+	jr nz, .nextByte
+	jp RandoSramOff
+.plain
+	xor a
+	ld hl, wWildMonPalettes
+	ld [hli], a
+	ld [hli], a
+	ld [hl], a
+.done
+	jp RandoSramOff
+
 ; Remaps the wild data ram copies in place, after LoadWildDataCommon fills them.
 ; Slot order is kept so the WildPalettePointers flags stay aligned, and a rate of
 ; 0 means that buffer was never copied and still holds the last map's data.
