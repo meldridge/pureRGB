@@ -680,10 +680,6 @@ GenerateSpeciesMap:
 	ld de, sRandoRngState
 	ld c, 4
 	call RandoCopyBytes
-	ld hl, sRandoSeed
-	ld de, sRandoMapSeed
-	ld c, 4
-	call RandoCopyBytes
 
 ; Both tables come from the same seed. The trainer one is built first and set
 ; aside, then the wild one is built in place from where the generator had got
@@ -700,7 +696,13 @@ GenerateSpeciesMap:
 	call ShuffleWithinWindows
 	call ShuffleTms
 	call HmGuardrail
-	; fall through
+	call PickStarterSet
+
+; written last: EnsureSpeciesMap trusts the tables whenever this matches
+	ld hl, sRandoSeed
+	ld de, sRandoMapSeed
+	ld c, 4
+	jp RandoCopyBytes
 
 ; Copies one entry of RandoStarterTriples into sRandoStarters.
 PickStarterSet:
@@ -1178,15 +1180,41 @@ FitsWindow:
 	ret
 
 ; a = random value in [0, c). c must be nonzero.
+; a = an even value in 0 to c-1; 0 or 1 gives 0. Plain modulo would favour the
+; low end whenever c does not divide 256, so a draw from the final short block
+; is redrawn.
 RandoRandRange:
 	push bc
+	push de
+	ld a, c
+	cp 2
+	jr c, .zero
+.draw
+	push bc ; RandoRand clobbers bc, de and hl
 	call RandoRand
 	pop bc
+	ld d, a
 .reduce
 	cp c
-	ret c
+	jr c, .checkBlock
 	sub c
 	jr .reduce
+.checkBlock
+	ld e, a
+	ld a, d
+	sub e ; first draw of the block holding it
+	ld d, c
+	dec d
+	add d ; and the last; carry means the block ran off the end
+	jr c, .draw
+	ld a, e
+	jr .done
+.zero
+	xor a
+.done
+	pop de
+	pop bc
+	ret
 
 ; a = next byte of the 32 bit xorshift generator. Clobbers bc, de, hl.
 RandoRand:

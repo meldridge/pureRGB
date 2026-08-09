@@ -609,6 +609,48 @@ def unmap_test(rom, syms, seed, species_map, pool, check):
           all(call(species_map[index_of[p]], True) == index_of[p] for p in prizes))
 
 
+def rand_range_test(rom, syms, check):
+    """RandoRandRange is even across its range, not just inside it.
+
+    Plain modulo would leave the low end of an awkward range twice as likely, so
+    the counts, not merely the values, have to be checked.
+    """
+    bank, addr = syms["RandoRandRange"]
+
+    def draws(limit, count):
+        cpu = Cpu(rom, bank)
+        state = syms["sRandoRngState"][1]
+        for i in range(4):
+            cpu.ram[state + i] = (0x12345678 >> (8 * i)) & 0xFF
+        out = []
+        for _ in range(count):
+            cpu.c = limit
+            cpu.steps = 0  # the guard counts a whole run, not a whole session
+            cpu.run(addr)
+            out.append(cpu.a)
+        return out
+
+    for limit in (2, 16, 24, 50, 151):
+        seen = draws(limit, 400)
+        check(f"rand range {limit}: stays inside the range",
+              all(0 <= v < limit for v in seen), f"saw {min(seen)}..{max(seen)}")
+
+    # Only ranges above 128 skew enough to separate from sampling noise here:
+    # unfixed, 105 of the 151 starter sets draw twice as often as the other 46.
+    # Smaller ranges are biased too (24 by 10%, 50 by 20%), but showing that
+    # needs more draws than the interpreter can do in reasonable time.
+    n = 30_000
+    seen = draws(151, n)
+    counts = [seen.count(v) for v in range(151)]
+    expected = n / 151
+    worst = max(abs(c - expected) / expected for c in counts)
+    check("rand range 151: evenly spread", worst < 0.30,
+          f"worst bucket {worst:.0%} off expected, bias would be 41%")
+
+    check("rand range 0: terminates, gives 0", draws(0, 4) == [0] * 4)
+    check("rand range 1: terminates, gives 0", draws(1, 4) == [0] * 4)
+
+
 def item_test(rom, syms, seed, item_pool, index_of_item, check):
     """Ground and hidden items roll per spot, from the seed and the location."""
     pool_ids = [index_of_item[name] for name in item_pool]
@@ -1211,6 +1253,9 @@ def main():
 
     print("\ninverse lookup (prize king)")
     unmap_test(rom, syms, 0x12345678, maps[0x12345678], pool, check)
+
+    print("\nrandom range distribution")
+    rand_range_test(rom, syms, check)
 
     print("\nground and hidden items")
     item_test(rom, syms, 0x12345678, item_pool, parse_item_constants(), check)
