@@ -29,3 +29,7 @@
 *.sn*
 *.sa*
 *.sg1
+
+# romtest: fetched emulator source and its build output
+tools/romtest/binjgb/
+tools/romtest/romtest
