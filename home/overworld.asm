@@ -1943,7 +1943,7 @@ LoadMapHeader::
 	ld [wCurMapTileset], a
 	ldh [hPreviousTileset], a
 	bit BIT_NO_PREVIOUS_MAP, b
-	ret nz
+	push af ; keep the result across the header copy, which needs b
 	ld hl, MapHeaderPointers
 	ld a, [wCurMap]
 	add a
@@ -1996,6 +1996,10 @@ LoadMapHeader::
 	ld de, wEastConnectionHeader
 	call CopyMapConnectionHeader
 .getObjectDataPointer
+; BIT_NO_PREVIOUS_MAP means a save was just loaded: it restored everything below,
+; but the header above holds rom addresses and has to come from this rom.
+	pop af
+	ret nz
 	hl_deref
 	; hl = base of object data
 	ld de, wMapBackgroundTile
