@@ -817,7 +817,8 @@ OaksLabShowPokeBallPokemonScript:
 	rst _DelayFrames
 ; PureRGBnote: ADDED: randomizer mode. The lines below name a species and its
 ; type, both wrong once starters are shuffled, so use a generic prompt instead.
-	callfar RandoEnabledFar
+; Only when they actually move: with STARTERS off the vanilla lines still hold.
+	callfar RandoStartersRandomizedFar
 	ld a, e
 	and a
 	jr nz, OaksLabYouWantRandomizedText

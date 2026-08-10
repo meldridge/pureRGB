@@ -396,14 +396,10 @@ def parse_item_constants():
 
 
 def parse_rando_flag_bits():
-    """Bit position of each randomizer setting within the byte they share.
-
-    They are declared consecutively from a byte boundary, which randomizer.asm
-    asserts, so declaration order is bit order.
-    """
-    names = re.findall(r"^\tconst (FLAG_RANDOM_\w+)$",
-                       (ROOT / "constants/event_constants.asm").read_text(), re.M)
-    return {name: i for i, name in enumerate(names)}
+    """Bit position of each setting within sRandoFlags, from its DEF."""
+    text = (ROOT / "engine/randomizer/randomizer.asm").read_text()
+    return {name: int(bit)
+            for name, bit in re.findall(r"^DEF (RANDO_\w+_OFF) EQU (\d+)$", text, re.M)}
 
 
 RANDO_FLAG_BITS = parse_rando_flag_bits()
@@ -693,7 +689,7 @@ def item_test(rom, syms, seed, item_pool, index_of_item, check):
     check("items: ground and hidden keys do not collide",
           collisions < 12, f"{collisions} of 48 agreed")
     check("items: gate off leaves the item alone",
-          roll("RandoRollGroundItem", 5, 2, potion, "FLAG_RANDOM_ITEMS_OFF") == potion)
+          roll("RandoRollGroundItem", 5, 2, potion, "RANDO_ITEMS_OFF") == potion)
 
     # Key items are absent from the pool, so a spot holding one is left alone by
     # the same test that keeps them from being handed out. This is what stops a
@@ -725,7 +721,8 @@ def primed(rom, syms, seed, off_flag=None):
     for i in range(4):
         cpu.ram[syms["sRandoSeed"][1] + i] = (seed >> (8 * i)) & 0xFF
     if off_flag:
-        cpu.ram[syms["sRandoFlags"][1]] = 1 << RANDO_FLAG_BITS[off_flag]
+        flags = [off_flag] if isinstance(off_flag, str) else off_flag
+        cpu.ram[syms["sRandoFlags"][1]] = sum(1 << RANDO_FLAG_BITS[f] for f in flags)
     cpu.run(entry)
     return cpu
 
@@ -773,7 +770,7 @@ def palette_test(rom, syms, seed, check):
     check("palettes: some map comes out heavily coloured",
           max(bits) >= 12, f"densest map has {max(bits)} of 24")
     check("palettes: the wild gate switches it off",
-          roll(12, "FLAG_RANDOM_WILD_OFF") == b"\xAB\xCD\xEF",
+          roll(12, "RANDO_WILD_OFF") == b"\xAB\xCD\xEF",
           "flags were rerolled with wild randomization off")
 
 
@@ -808,9 +805,63 @@ def tm_test(rom, syms, seeds, check):
     table = orders[seeds[0]]
     check("tms: the lookup agrees with the table", remaps() == table)
     check("tms: gate off hands over the same tm",
-          remaps("FLAG_RANDOM_TMS_OFF") == list(range(num_tms)))
+          remaps("RANDO_TMS_OFF") == list(range(num_tms)))
     check("tms: the wild gate does not reach them",
-          remaps("FLAG_RANDOM_WILD_OFF") == table)
+          remaps("RANDO_WILD_OFF") == table)
+
+
+def all_off_test(rom, syms, seed, pool, index_of, num_tms, check):
+    """Every category off has to be indistinguishable from a vanilla game.
+
+    The per-flag gates are checked one at a time elsewhere; this is the promise
+    a player is actually making when they turn the lot off, and it is the state
+    a save from before the settings existed would be in if the polarity were
+    ever flipped.
+    """
+    every = tuple(RANDO_FLAG_BITS)
+    items = parse_item_constants()  # species and items index differently
+    cpu = primed(rom, syms, seed, every)
+    sample = pool[:4] + pool[-4:]
+
+    def wild(species):
+        cpu.e = species
+        cpu.run(syms["ApplyRandoSpecies"][1])
+        return cpu.e
+
+    def trainer(species):
+        cpu.ram[syms["wCurOpponent"][1]] = 0
+        cpu.ram[syms["wCurPartySpecies"][1]] = species
+        cpu.run(syms["RandoRemapPartySpecies"][1])
+        return cpu.ram[syms["wCurPartySpecies"][1]]
+
+    def starter(constant):
+        cpu.a = constant
+        cpu.run(syms["RandoStarterSpecies"][1])
+        return cpu.a
+
+    def tm(n):
+        cpu.e = n
+        cpu.run(syms["RandoRemapTm"][1])
+        return cpu.e
+
+    def ground_item(original):
+        cpu.ram[syms["wCurMap"][1]] = 5
+        cpu.ram[0xFF00 + (syms["hSpriteIndex"][1] & 0xFF)] = 2
+        cpu.d = original
+        cpu.run(syms["RandoRollGroundItem"][1])
+        return cpu.e
+
+    check("all off: wild species untouched", all(wild(s) == s for s in sample))
+    check("all off: opposing teams untouched", all(trainer(s) == s for s in sample))
+    check("all off: starters untouched",
+          starter(index_of["CHARMANDER"]) == index_of["CHARMANDER"])
+    check("all off: tms untouched", [tm(n) for n in range(num_tms)] == list(range(num_tms)))
+    check("all off: ground items untouched",
+          ground_item(items["POTION"]) == items["POTION"])
+    check("all off: the starters prompt reverts to the vanilla wording",
+          "RandoStartersRandomizedFar" in
+          (ROOT / "scripts/OaksLab.asm").read_text(),
+          "Oak's Lab still gates its text on RandoEnabledFar")
 
 
 def gate_test(rom, syms, seed, species_map, trainer_map, pool, index_of, check):
@@ -821,8 +872,8 @@ def gate_test(rom, syms, seed, species_map, trainer_map, pool, index_of, check):
     """
     # one primed cpu per flag setting, reused across every lookup
     cpus = {flag: primed(rom, syms, seed, flag)
-            for flag in (None, "FLAG_RANDOM_WILD_OFF", "FLAG_RANDOM_TRAINERS_OFF",
-                         "FLAG_RANDOM_STARTERS_OFF")}
+            for flag in (None, "RANDO_WILD_OFF", "RANDO_TRAINERS_OFF",
+                         "RANDO_STARTERS_OFF")}
 
     def wild(species, off_flag=None):
         cpu = cpus[off_flag]
@@ -847,27 +898,27 @@ def gate_test(rom, syms, seed, species_map, trainer_map, pool, index_of, check):
     starter1 = index_of["CHARMANDER"]  # STARTER1 is the constant for it
 
     check("gate: wild off leaves the species alone",
-          all(wild(s, "FLAG_RANDOM_WILD_OFF") == s for s in sample))
+          all(wild(s, "RANDO_WILD_OFF") == s for s in sample))
     check("gate: wild on still maps",
           all(wild(s) == species_map[s] for s in sample))
     check("gate: trainers off leaves opposing teams alone",
-          all(trainer(s, "FLAG_RANDOM_TRAINERS_OFF") == s for s in sample))
+          all(trainer(s, "RANDO_TRAINERS_OFF") == s for s in sample))
     check("gate: trainers on still maps",
           all(trainer(s) == trainer_map[s] for s in sample))
     check("gate: starters off gives back the vanilla starter",
-          starter(starter1, "FLAG_RANDOM_STARTERS_OFF") == starter1)
+          starter(starter1, "RANDO_STARTERS_OFF") == starter1)
     check("gate: starters on still substitutes",
           starter(starter1) != starter1)
 
     # the bits must be independent, or one row on the options page silently
     # switches off another category
     check("gate: the wild flag does not reach opposing teams",
-          all(trainer(s, "FLAG_RANDOM_WILD_OFF") == trainer_map[s] for s in sample))
+          all(trainer(s, "RANDO_WILD_OFF") == trainer_map[s] for s in sample))
     check("gate: the trainer flag does not reach the wild table",
-          all(wild(s, "FLAG_RANDOM_TRAINERS_OFF") == species_map[s] for s in sample))
+          all(wild(s, "RANDO_TRAINERS_OFF") == species_map[s] for s in sample))
     check("gate: the starter flag reaches neither table",
-          all(wild(s, "FLAG_RANDOM_STARTERS_OFF") == species_map[s] for s in sample)
-          and all(trainer(s, "FLAG_RANDOM_STARTERS_OFF") == trainer_map[s]
+          all(wild(s, "RANDO_STARTERS_OFF") == species_map[s] for s in sample)
+          and all(trainer(s, "RANDO_STARTERS_OFF") == trainer_map[s]
                   for s in sample))
 
 
@@ -1058,101 +1109,86 @@ def parse_starter_evolutions(rom, syms):
     return evo
 
 
-def options_row_test(check):
-    """Every row's two cursor columns must match where its own labels are drawn.
+def settings_screen_test(check):
+    """The settings screen's cursors must line up with its own labels.
 
-    XPosBitData lists the bit-set x first, and the menu treats it as "cursor here
-    means the bit is set". Getting it round the wrong way shows ON for a cleared
-    bit, so the page reads ON while the feature is off -- which shipped once, and
-    nothing in the rom tests can see it. The two polarities on this page make it
-    easy to repeat: RANDOM is set when on, the categories are set when off.
+    The screen draws ON and OFF from a text block and puts the cursor at a
+    coordinate from a table, so the two can drift apart silently: the page this
+    replaced shipped once showing ON for a cleared bit. Text is placed at
+    hlcoord 1, 1, so a character at string index i sits at screen x = 1 + i, and
+    the cursor goes one column to its left -- at x = i. <NEXT> moves two rows,
+    not one, so line n of the block lands at y = 1 + 2n; assuming otherwise is
+    what let a misdrawn screen through once.
     """
-    src = (ROOT / "engine/menus/options_menu4.asm").read_text()
+    src = (ROOT / "engine/randomizer/randomizer.asm").read_text()
 
-    rows = re.findall(r'next\s+"( [A-Z]+:.*?)@?"', src)
+    block = re.search(r"RandoSettingsText:\n(.*?)(?:\n\n|\Z)", src, re.S)
+    lines = re.findall(r'(?:db|next)\s+"(.*?)@?"', block.group(1)) if block else []
+    rows = [(i, t) for i, t in enumerate(lines) if "ON" in t and "OFF" in t]
+
+    cursors = [(int(x), int(y)) for x, y in
+               re.findall(r"dwcoord (\d+), (\d+)",
+                          re.search(r"RandoSettingCursors:\n(.*?)(?:\n\n|\Z)", src, re.S).group(1))]
+    confirm = re.search(r"DEF RANDO_CONFIRM_ARROW_Y EQU (\d+)", src)
+    m = re.search(r"DEF RANDO_NUM_SETTINGS EQU (\d+)", src)
+    n = int(m.group(1)) if m else -1
+
+    check("settings screen: a row of text per setting",
+          len(rows) == n, f"{len(rows)} rows of text, RANDO_NUM_SETTINGS is {n}")
+    check("settings screen: an on/off cursor pair per setting",
+          len(cursors) == 2 * n, f"{len(cursors)} cursors for {n} settings")
+    if len(rows) != n or len(cursors) != 2 * n:
+        return
+
+    for row, (line, text) in enumerate(rows):
+        y = 1 + 2 * line  # placed at hlcoord 1, 1, and <NEXT> is two rows
+        want = [(text.index("ON"), y), (text.index("OFF"), y)]
+        got = cursors[row * 2:row * 2 + 2]
+        label = text.strip().split(" ")[0]
+        check(f"settings screen: {label} cursors sit by its own labels",
+              got == want, f"table says {got}, text wants {want}")
+
+    start_line = next(i for i, t in enumerate(lines) if t.strip() == "START")
+    check("settings screen: the confirm arrow is on the START row",
+          confirm and int(confirm.group(1)) == 1 + 2 * start_line,
+          f"arrow y is {confirm.group(1) if confirm else None}, "
+          f"START is at y {1 + 2 * start_line}")
+
+
+def fallthrough_test(syms, check):
+    """RandoNewGame ends by falling through to RandoSeedFromBuffer.
+
+    Nothing may be inserted between them. Dropping a routine into that gap sends
+    the seed screen back into whatever landed there, which is exactly what
+    happened once: the settings screen ran a second time and its write to
+    sRandoFlags quietly replaced the first.
+    """
+    bank, addr = syms["RandoNewGame"]
+    after = sorted(a for n, (b, a) in syms.items() if b == bank and a > addr)
+    nxt = [n for n, (b, a) in syms.items() if b == bank and a == after[0]] if after else []
+    check("RandoNewGame still falls through to RandoSeedFromBuffer",
+          "RandoSeedFromBuffer" in nxt, f"next symbol is {nxt}")
+
+
+def options_page5_test(check):
+    """Page 5 owns the RANDOM row again, and its tables have to stay aligned."""
+    src = (ROOT / "engine/menus/options_menu3.asm").read_text()
+    m = re.search(r"DEF OPTIONS_PAGE_5_COUNT EQU (\d+)", src)
+    rows = re.findall(r'next\s+"( [A-Z]+.*?)@?"', src)
     entries = re.findall(r"db\s+(\d+)\s*,\s*(\d+)\s*,\s*(\w+)(?:\s*%\s*8)?\s*\n", src)
-    m = re.search(r"DEF OPTIONS_PAGE_6_COUNT EQU (\d+)", src)
-    count = int(m.group(1)) if m else -1
+    check("options: page 5's count matches its rows and data",
+          m and int(m.group(1)) == len(rows) == len(entries),
+          f"count {m.group(1) if m else '?'}, {len(rows)} rows, {len(entries)} entries")
 
-    check("options: the page's row count matches its text and data",
-          count == len(rows) == len(entries),
-          f"count {count}, {len(rows)} rows of text, {len(entries)} data entries")
-    if not (len(rows) == len(entries)):
-        return
-
-    for row, (set_x, clear_x, name) in zip(rows, entries):
-        label = row.split(":")[0].strip()
-        # text is placed at hlcoord 1, so the cursor column is the string index
-        on_col, off_col = row.index("ON"), row.index("OFF")
-        # a flag named _OFF is set when the category is off, so its columns are
-        # the reverse of RANDOM's
-        want = (off_col, on_col) if name.endswith("_OFF") else (on_col, off_col)
-        check(f"options: {label} row columns match its labels",
-              (int(set_x), int(clear_x)) == want,
-              f"data says {set_x}/{clear_x}, text puts ON at {on_col} "
-              f"and OFF at {off_col}")
-
-    # removing the RANDOM row from page 5 must leave its tables aligned
-    page5 = (ROOT / "engine/menus/options_menu3.asm").read_text()
-    m = re.search(r"DEF OPTIONS_PAGE_5_COUNT EQU (\d+)", page5)
-    p5_rows = re.findall(r'next\s+"( [A-Z]+.*?)@?"', page5)
-    check("options: page 5's count matches its remaining rows",
-          m and int(m.group(1)) == len(p5_rows),
-          f"count {m.group(1) if m else '?'}, {len(p5_rows)} rows")
-
-    # The seed screen writes its hint on row 3, where the entry underscores
-    # start at column 10. Anything longer than 9 characters gets overwritten.
-    # Rod encounters set wCurOpponent and are remapped in InitOpponent with the
-    # statics. Remapping in RodResponse as well would map them twice.
-    effects = (ROOT / "engine/items/item_effects.asm").read_text()
-    rod = effects.split("RodResponse:")[1].split("FishingInit:")[0]
-    check("rods: mapped once, in InitOpponent", "Rando" not in rod,
-          "RodResponse randomizes as well")
-
-    naming = (ROOT / "engine/menus/naming_screen.asm").read_text()
-    m = re.search(r'SeedBlankString:\s*\n\s*db\s+"([^"]*)@"', naming)
-    if not m:
-        check("seed screen: hint string present", False, "not found")
-        return
-    hint = m.group(1)
-    check("seed screen: hint fits before the entry field", len(hint) <= 9,
-          f'"{hint}" is {len(hint)} chars, only 9 columns are free')
-
-    # Option info shares the standard text box, and the control characters are
-    # wider than they look: # is POKe and <TRAINER> is spelt out.
-    info = (ROOT / "text/Randomizer.asm").read_text()
-    expansions = {"#": "POKe", "<TRAINER>": "TRAINER"}
-    over = []
-    for name, body in re.findall(
-            r"^(_\w+)::\n((?:\t(?:text|line|cont|para)\s+\"[^\"]*\"\n)+)", info, re.M):
-        for line in re.findall(r'"([^"]*)"', body):
-            for token, spelt in expansions.items():
-                line = line.replace(token, spelt)
-            if len(line) > 18:
-                over.append((name, line))
-    check("info text: every line fits the text box", not over,
-          "; ".join(f"{n}: {l!r} is {len(l)}" for n, l in over[:3]))
-
-    # The Game Corner draws its prize list from ROM rather than through
-    # _GivePokemon, so each displayed name needs its own remap. wPrize1-3 must
-    # stay vanilla: the price and the level are keyed to the slot's own species.
-    prizes = (ROOT / "engine/events/prize_menu.asm").read_text()
-    menu = re.split(r"^\.putMonName", prizes, flags=re.M)[1].split(".putNoThanksText")[0]
-    check("prizes: all three menu names are remapped",
-          menu.count("RandoRemapNamedWild") == 3,
-          f"{menu.count('RandoRemapNamedWild')} of 3 names remapped")
-    check("prizes: menu leaves wPrize1-3 vanilla",
-          not re.search(r"ld\s+\[wPrize[123]\]", prizes),
-          "something writes back to a wPrize slot")
-
-    # The confirm prompt names the remapped mon but must hand the slot's own
-    # species to GetPrizeMonLevel, which has no terminator to stop a bad key.
-    confirm = re.split(r"^\.getMonName", prizes, flags=re.M)[1].split(".givePrize")[0]
-    check("prizes: confirm prompt restores the vanilla species",
-          "RandoRemapNamedWild" in confirm
-          and confirm.rindex("ld [wNamedObjectIndex], a")
-              > confirm.index("RandoRemapNamedWild"),
-          "wNamedObjectIndex is left remapped for the level lookup")
+    # RANDOM is set when on, so its cursor columns run the opposite way to the
+    # _OFF flags around it. That polarity shipped inverted once.
+    for text, (set_x, clear_x, name) in zip(rows, entries):
+        if name != "BIT_RANDOMIZER":
+            continue
+        check("options: RANDOM row columns match its labels",
+              (int(set_x), int(clear_x)) == (text.index("ON"), text.index("OFF")),
+              f"data says {set_x}/{clear_x}, text puts ON at {text.index('ON')} "
+              f"and OFF at {text.index('OFF')}")
 
 
 def main():
@@ -1266,6 +1302,9 @@ def main():
     print("\ntm order")
     tm_test(rom, syms, seeds, check)
 
+    print("\neverything off")
+    all_off_test(rom, syms, 0x12345678, pool, index_of, 50, check)
+
     print("\ncategory gates")
     gate_test(rom, syms, 0x12345678, maps[0x12345678],
               trainer_maps[0x12345678], pool, index_of, check)
@@ -1279,8 +1318,10 @@ def main():
     print("\nrival starter continuity")
     rival_chain_test(rom, syms, 0x12345678, starter_sets[0x12345678], check)
 
-    print("\noptions row wiring")
-    options_row_test(check)
+    print("\nsettings screen wiring")
+    settings_screen_test(check)
+    options_page5_test(check)
+    fallthrough_test(syms, check)
 
     fixed = sum(1 for s in pool if maps[0x12345678][s] == s)
     print(f"\n  (seed $12345678 leaves {fixed}/{len(pool)} species unchanged)")

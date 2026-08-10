@@ -8,6 +8,16 @@
 
 INCLUDE "data/randomizer/species_pool.asm"
 
+; Bits of sRandoFlags, chosen at the start of a game on the settings screen.
+; Each is named for its non-default state, so a zero byte reads as everything
+; on: that is what saves made before the settings existed hold.
+DEF RANDO_WILD_OFF EQU 0
+DEF RANDO_TRAINERS_OFF EQU 1
+DEF RANDO_STARTERS_OFF EQU 2
+DEF RANDO_TMS_OFF EQU 3
+DEF RANDO_ITEMS_OFF EQU 4
+DEF RANDO_NUM_SETTINGS EQU 5
+
 ; nz if this save is a randomizer game. Requires sram enabled. Clobbers a, hl.
 RandoEnabled::
 	ld hl, sRandoMagic
@@ -56,7 +66,7 @@ ApplyRandoSpecies::
 ; Assumes sram is enabled and the randomizer is already known to be on.
 RandoMapSpecies:
 	ld a, [sRandoFlags]
-	bit FLAG_RANDOM_WILD_OFF % 8, a
+	bit RANDO_WILD_OFF, a
 	ret nz ; category switched off for this game, so the species stands
 	ld bc, sRandoShuffle
 	jr RandoMapThrough
@@ -64,7 +74,7 @@ RandoMapSpecies:
 ; As above, but through the table used for opposing teams.
 RandoMapTrainerSpecies:
 	ld a, [sRandoFlags]
-	bit FLAG_RANDOM_TRAINERS_OFF % 8, a
+	bit RANDO_TRAINERS_OFF, a
 	ret nz
 	ld bc, sRandoShuffleTrainer
 	; fall through
@@ -99,7 +109,7 @@ RandoMapThrough:
 ; Assumes sram is enabled and the randomizer is already known to be on.
 RandoUnmapSpecies:
 	ld a, [sRandoFlags]
-	bit FLAG_RANDOM_WILD_OFF % 8, a
+	bit RANDO_WILD_OFF, a
 	ret nz ; nothing was mapped, so nothing to undo
 	push bc
 	push de
@@ -168,6 +178,25 @@ RandoShowSeed::
 .seedText
 	text_far _RandomizerSeedText
 	text_end
+
+; e = nonzero if the starters were shuffled in this game. Oak's line names a
+; species and its type, which only stops being true once they move.
+RandoStartersRandomizedFar::
+	push hl
+	call RandoSramOn
+	call RandoEnabled
+	jr z, .no
+	ld a, [sRandoFlags]
+	bit RANDO_STARTERS_OFF, a
+	jr nz, .no
+	ld e, 1
+	jr .done
+.no
+	ld e, 0
+.done
+	call RandoSramOff
+	pop hl
+	ret
 
 ; e = 0 if this save is a normal game, nonzero if it's a randomizer game.
 ; Handles sram itself. The answer comes back in e rather than the flags because
@@ -403,7 +432,7 @@ RandoRollWildPalettes::
 	call RandoEnabled
 	jr z, .done
 	ld a, [sRandoFlags]
-	bit FLAG_RANDOM_WILD_OFF % 8, a
+	bit RANDO_WILD_OFF, a
 	jr nz, .done
 	ld hl, sRandoSeed
 	ld de, sRandoRngState
@@ -496,6 +525,7 @@ RandoNewGame::
 	ld a, [wOptions3]
 	bit BIT_RANDOMIZER, a
 	jp z, RandoClearGame
+	call RandoSettingsMenu
 	ld a, NAME_SEED_SCREEN
 	ld [wNamingScreenType], a
 	callfar DisplayNamingScreen
@@ -606,12 +636,7 @@ RandoSeedText:
 ; Writes the magic so the state is recognised, and clears sRandoMapSeed so the
 ; permutation is rebuilt on first use. Assumes sram is on.
 RandoFinishStart:
-; Freeze the settings this game is being started with. The six are consecutive
-; and so share one event byte, copied wholesale: a bit means the same thing in
-; sRandoFlags as it does in wEventFlags.
-	ASSERT FLAG_RANDOM_WILD_OFF / 8 == FLAG_RANDOM_ITEMS_OFF / 8
-	ld a, [wEventFlags + (FLAG_RANDOM_WILD_OFF / 8)]
-	ld [sRandoFlags], a
+; sRandoFlags was already written by the settings screen.
 	ld hl, sRandoMagic
 	ld a, $52
 	ld [hli], a
@@ -727,7 +752,7 @@ RandoStarterSpecies::
 	; ld a, b rather than pop af, so the bit result survives restoring the input
 	ld b, a
 	ld a, [sRandoFlags]
-	bit FLAG_RANDOM_STARTERS_OFF % 8, a
+	bit RANDO_STARTERS_OFF, a
 	ld a, b
 	jr nz, .notAStarter ; left vanilla, and the constants are the vanilla species
 	push af
@@ -757,7 +782,7 @@ RandoRemapTm::
 	call RandoEnabled
 	jr z, .done
 	ld a, [sRandoFlags]
-	bit FLAG_RANDOM_TMS_OFF % 8, a
+	bit RANDO_TMS_OFF, a
 	jr nz, .done
 	push hl
 	push de
@@ -816,7 +841,7 @@ RandoRollItem:
 	call RandoEnabled
 	jr z, .keep
 	ld a, [sRandoFlags]
-	bit FLAG_RANDOM_ITEMS_OFF % 8, a
+	bit RANDO_ITEMS_OFF, a
 	jr nz, .keep
 	push bc ; the scan counts down in c, which is half the key
 	call ItemInPool
@@ -1288,3 +1313,183 @@ RandoCopyBytes:
 	dec c
 	jr nz, RandoCopyBytes
 	ret
+
+; Asks which categories to randomize and writes sRandoFlags. Shown once, when a
+; randomizer game is started: the answers are frozen into sram from here on, so
+; there is nothing for an options page to change afterwards.
+DEF RANDO_CONFIRM_ROW EQU RANDO_NUM_SETTINGS
+DEF RANDO_CONFIRM_ARROW_Y EQU 13
+
+RandoSettingsMenu:
+	ld a, 1
+	ldh [hAutoBGTransferEnabled], a
+	xor a
+	ld [wCurrentMenuItem], a
+	ld d, a ; the flags being built; clear is every category on
+	push de
+	call RandoDrawSettings ; the parts that never change, drawn the once
+	pop de
+.redraw
+	push de
+	call RandoDrawArrows
+	pop de
+.waitInput
+	push de
+	rst _DelayFrame
+	call JoypadLowSensitivity
+	pop de
+	ldh a, [hJoy5]
+	ld b, a
+	and a
+	jr z, .waitInput
+
+	bit B_PAD_START, b
+	jr nz, .accept ; start takes the settings from wherever the cursor is
+	bit B_PAD_UP, b
+	jr nz, .up
+	bit B_PAD_DOWN, b
+	jr nz, .down
+	ld a, [wCurrentMenuItem]
+	cp RANDO_CONFIRM_ROW
+	jr z, .onConfirmRow
+; on a category row, either direction flips it: there are only the two states
+	ld a, b
+	and PAD_LEFT | PAD_RIGHT
+	jr z, .waitInput
+	call RandoToggleSetting
+	jr .redraw
+.onConfirmRow
+	bit B_PAD_A, b
+	jr z, .waitInput
+.accept
+	call RandoSramOn
+	ld a, d
+	ld [sRandoFlags], a
+	jp RandoSramOff
+.up
+	ld a, [wCurrentMenuItem]
+	and a
+	jr z, .waitInput
+	dec a
+	jr .moved
+.down
+	ld a, [wCurrentMenuItem]
+	cp RANDO_CONFIRM_ROW
+	jr z, .waitInput
+	inc a
+.moved
+	ld [wCurrentMenuItem], a
+	jr .redraw
+
+; Flips the bit for the row the cursor is on. d = the flags.
+RandoToggleSetting:
+	ld a, [wCurrentMenuItem]
+	ld b, a
+	inc b
+	ld a, 1
+.mask
+	dec b
+	jr z, .gotMask
+	add a
+	jr .mask
+.gotMask
+	xor d
+	ld d, a
+	ret
+
+; The border and the labels, which nothing later disturbs.
+RandoDrawSettings:
+	call ClearScreen
+	hlcoord 0, 0
+	lb bc, 15, 18
+	call TextBoxBorder
+	hlcoord 1, 1
+	ld de, RandoSettingsText
+	jp PlaceString
+
+; d = the flags, wCurrentMenuItem = the row the cursor is on. Only the arrows
+; are touched: redrawing the whole screen for each keypress makes it flicker,
+; since the tilemap reaches vram a few rows at a time.
+RandoDrawArrows:
+	ld e, 0
+.rowLoop
+	ld c, 0
+	call RandoSettingSlot
+	ld [hl], ' '
+	ld c, 2
+	call RandoSettingSlot
+	ld [hl], ' '
+	call RandoSettingArrowCoord
+	ld [hl], '▷'
+	inc e
+	ld a, e
+	cp RANDO_NUM_SETTINGS
+	jr nz, .rowLoop
+
+	hlcoord 1, RANDO_CONFIRM_ARROW_Y
+	ld a, [wCurrentMenuItem]
+	cp RANDO_CONFIRM_ROW
+	jr z, .confirmRow
+	ld [hl], ' '
+	ld e, a
+	call RandoSettingArrowCoord
+	ld [hl], '▶'
+	ret
+.confirmRow
+	ld [hl], '▶'
+	ret
+
+; hl = where row e's arrow goes, given the flags in d. Leaves de alone.
+RandoSettingArrowCoord:
+	ld a, 1
+	ld b, e
+	inc b
+.mask
+	dec b
+	jr z, .gotMask
+	add a
+	jr .mask
+.gotMask
+	and d
+	ld c, 0
+	jr z, RandoSettingSlot
+	ld c, 2 ; the off column is the second entry of the pair
+	; fall through
+
+; hl = row e's slot in column c, 0 for on and 2 for off. Leaves de alone.
+RandoSettingSlot:
+	ld a, e
+	add a
+	add a ; four bytes of table per row
+	add c
+	ld c, a
+	ld b, 0
+	ld hl, RandoSettingCursors
+	add hl, bc
+	ld a, [hli]
+	ld h, [hl]
+	ld l, a
+	ret
+
+; On and off cursor positions for each category row, in pairs.
+RandoSettingCursors:
+	dwcoord 10, 3
+	dwcoord 14, 3
+	dwcoord 10, 5
+	dwcoord 14, 5
+	dwcoord 10, 7
+	dwcoord 14, 7
+	dwcoord 10, 9
+	dwcoord 14, 9
+	dwcoord 10, 11
+	dwcoord 14, 11
+
+; next moves two rows, so the rows below land on 3, 5, 7, 9, 11 and 13.
+RandoSettingsText:
+	db   "  RANDOMIZER"
+	next " WILD     ON  OFF"
+	next " TRAINERS ON  OFF"
+	next " STARTERS ON  OFF"
+	next " TMS      ON  OFF"
+	next " ITEMS    ON  OFF"
+	next " START@"

@@ -1325,18 +1325,7 @@ DEF SPRITE_OPTIONS_FLAGS_FIFTH_BATCH_START EQU const_value
 
 	const_next $930
 
-;;;;;;;;;; PureRGBnote: ADDED: randomizer settings, read once when a new game
-; starts and then frozen into sram so they cannot alter a world mid-save.
-; Each is named for its non-default state: flags start clear, and clear has to
-; read as the default.
-	const FLAG_RANDOM_WILD_OFF
-	const FLAG_RANDOM_TRAINERS_OFF
-	const FLAG_RANDOM_STARTERS_OFF
-	const FLAG_RANDOM_TMS_OFF
-	const FLAG_RANDOM_ITEMS_OFF
-;;;;;;;;;;
-
-	; pureRGBnote: ~123 bits of unused event space (large)
+	; pureRGBnote: ~128 bits of unused event space (large)
 
 ; Rock Tunnel events
 	const_next $9B0

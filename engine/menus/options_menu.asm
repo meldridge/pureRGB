@@ -1,7 +1,7 @@
 DEF OPTION_PAGE_1_COUNT EQU 3 ; number of options on this page
 DEF MAX_OPTIONS_PER_PAGE EQU 7
 DEF OPTION_PAGE_NUMBER EQU 1 ; must be 1 digit
-DEF HOW_MANY_MAIN_OPTIONS_PAGES EQU 6 ; must be 1 digit
+DEF HOW_MANY_MAIN_OPTIONS_PAGES EQU 5 ; must be 1 digit
 DEF NEXT_BUTTON_X_COORD EQU 1
 DEF BACK_BUTTON_X_COORD EQU 7
 DEF PAGE_CONTROLS_Y_COORD EQU 17
@@ -156,7 +156,7 @@ OptionMenu1Header:
 	dw SetOptionsFromCursorPositions
 	dw OptionLeftRightFuncs
 	dw DisplayOptions2
-	dw DisplayOptions4
+	dw DisplayOptions3
 	dw OptionsPageAorSelectButtonDefault
 	dw OptionsMenu1InfoTextJumpTable
 	; fall through (options display address should be after A button pointer)
